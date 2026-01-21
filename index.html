@@ -3,94 +3,124 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OBS Win/Loss Counter</title>
+    <title>OBS Triple Counter</title>
     <style>
-        /* 共通設定 */
-        body { margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
-        
-        /* --- 操作画面（ドック）用のスタイル --- */
-        #dock-ui { background: #2b2b2b; color: white; padding: 10px; text-align: center; display: none; }
-        .btn-group { display: flex; gap: 8px; margin-bottom: 10px; }
-        button { flex: 1; padding: 12px; font-size: 1rem; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; }
-        .win-btn { background: #ff4757; color: white; }
-        .loss-btn { background: #1e90ff; color: white; }
-        .reset-btn { background: #444; color: #aaa; width: 100%; font-size: 0.8rem; padding: 5px; }
+        :root {
+            --win-color: #ff4757;
+            --loss-color: #1e90ff;
+            --bg-dark: #2b2b2b;
+            --panel-bg: #3d3d3d;
+        }
+        body { margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; color: white; overflow: hidden; }
 
-        /* --- 表示画面（ソース）用のスタイル --- */
-        #display-ui { background: transparent; color: white; font-size: 40px; font-weight: 800; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); display: none; padding: 10px; }
-        .win-count { color: #ff4757; }
-        .loss-count { color: #1e90ff; }
+        /* --- 操作画面（ドック） --- */
+        #dock-ui { background: var(--bg-dark); padding: 10px; display: none; }
+        .counter-panel { background: var(--panel-bg); border-radius: 8px; padding: 10px; margin-bottom: 10px; border: 1px solid #555; }
+        .panel-title { font-size: 0.9rem; font-weight: bold; margin-bottom: 8px; color: #ccc; }
+        .btn-group { display: flex; gap: 5px; }
+        button { flex: 1; padding: 8px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; color: white; }
+        .win-btn { background: var(--win-color); }
+        .loss-btn { background: var(--loss-color); }
+        .reset-small { background: #555; margin-top: 5px; font-size: 0.7rem; width: 100%; }
+
+        /* --- 表示画面（ソース） --- */
+        #display-ui { background: transparent; display: none; padding: 10px; }
+        .display-row { display: flex; align-items: center; justify-content: flex-start; gap: 20px; font-size: 32px; font-weight: 900; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); margin-bottom: 5px; }
+        .label { font-size: 0.5em; color: #aaa; margin-right: -10px; }
+        .w-num { color: var(--win-color); }
+        .l-num { color: var(--loss-color); }
     </style>
 </head>
 <body>
 
     <div id="dock-ui">
-        <div class="btn-group">
-            <button class="win-btn" onclick="update(1, 0)">WIN +1</button>
-            <button class="loss-btn" onclick="update(0, 1)">LOSS +1</button>
-        </div>
-        <button class="reset-btn" onclick="resetCount()">RESET</button>
-        <div id="status" style="font-size: 0.7rem; color: #777; margin-top: 5px;">Ready</div>
+        <div id="controls-container"></div>
+        <div id="status" style="font-size: 0.7rem; color: #777; text-align: center;">Ready</div>
     </div>
 
     <div id="display-ui">
-        <span class="win-count">W: <span id="w-num">0</span></span>
-        <span style="margin: 0 10px;">/</span>
-        <span class="loss-count">L: <span id="l-num">0</span></span>
+        <div id="displays-container"></div>
     </div>
 
     <script>
-        const bc = new BroadcastChannel('obs_game_counter');
+        const bc = new BroadcastChannel('obs_triple_counter');
         const urlParams = new URLSearchParams(window.location.search);
-        const mode = urlParams.get('mode'); // URLの ?mode=... を取得
+        const mode = urlParams.get('mode');
 
-        // UIの切り替え
+        // カウンター名の設定（好きな名前に変更可能）
+        const counterNames = ["GAME 1", "GAME 2", "GAME 3"];
+
+        // データの初期化（localStorageから取得または[0,0,0]）
+        let wins = JSON.parse(localStorage.getItem('triple_wins') || "[0, 0, 0]");
+        let losses = JSON.parse(localStorage.getItem('triple_losses') || "[0, 0, 0]");
+
+        // UI生成
         if (mode === 'display') {
+            const container = document.getElementById('displays-container');
             document.getElementById('display-ui').style.display = 'block';
+            counterNames.forEach((name, i) => {
+                container.innerHTML += `
+                    <div class="display-row">
+                        <span class="label">${name}</span>
+                        <span class="w-num" id="w-${i}">${wins[i]}</span>
+                        <span style="opacity:0.5">/</span>
+                        <span class="l-num" id="l-${i}">${losses[i]}</span>
+                    </div>`;
+            });
         } else {
+            const container = document.getElementById('controls-container');
             document.getElementById('dock-ui').style.display = 'block';
+            counterNames.forEach((name, i) => {
+                container.innerHTML += `
+                    <div class="counter-panel">
+                        <div class="panel-title">${name}</div>
+                        <div class="btn-group">
+                            <button class="win-btn" onclick="update(${i}, 1, 0)">WIN</button>
+                            <button class="loss-btn" onclick="update(${i}, 0, 1)">LOSS</button>
+                        </div>
+                        <button class="reset-small" onclick="resetOne(${i})">RESET</button>
+                    </div>`;
+            });
         }
 
-        // データの読み込み
-        let win = parseInt(localStorage.getItem('gh_win') || 0);
-        let loss = parseInt(localStorage.getItem('gh_loss') || 0);
-
-        // 表示の更新（両方のモードで実行）
-        function refreshUI() {
-            if (document.getElementById('w-num')) document.getElementById('w-num').textContent = win;
-            if (document.getElementById('l-num')) document.getElementById('l-num').textContent = loss;
-        }
-
-        function update(w, l) {
-            win += w; loss += l;
+        function update(index, w, l) {
+            wins[index] += w;
+            losses[index] += l;
             saveAndSend();
         }
 
-        function resetCount() {
-            if (confirm('リセットしますか？')) {
-                win = 0; loss = 0;
+        function resetOne(index) {
+            if (confirm(`${counterNames[index]} をリセットしますか？`)) {
+                wins[index] = 0;
+                losses[index] = 0;
                 saveAndSend();
             }
         }
 
         function saveAndSend() {
-            localStorage.setItem('gh_win', win);
-            localStorage.setItem('gh_loss', loss);
-            bc.postMessage({ win, loss });
-            if (document.getElementById('status')) {
-                document.getElementById('status').textContent = `Sent: ${win}W - ${loss}L`;
-            }
+            localStorage.setItem('triple_wins', JSON.stringify(wins));
+            localStorage.setItem('triple_losses', JSON.stringify(losses));
+            bc.postMessage({ wins, losses });
             refreshUI();
         }
 
-        // 受信処理
+        function refreshUI() {
+            wins.forEach((val, i) => {
+                const el = document.getElementById(`w-${i}`);
+                if (el) el.textContent = val;
+            });
+            losses.forEach((val, i) => {
+                const el = document.getElementById(`l-${i}`);
+                if (el) el.textContent = val;
+            });
+        }
+
         bc.onmessage = (e) => {
-            win = e.data.win;
-            loss = e.data.loss;
+            wins = e.data.wins;
+            losses = e.data.losses;
             refreshUI();
         };
 
-        // 初回起動時の表示
         refreshUI();
     </script>
 </body>
