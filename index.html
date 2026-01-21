@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OBS Triple Counter Pro - Fixed</title>
+    <title>OBS Triple Counter Pro - Undo Edition</title>
     <style>
         :root {
             --win-color: #ff4757;
@@ -24,50 +24,20 @@
         button { flex: 1; padding: 8px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; color: white; }
         .win-btn { background: var(--win-color); }
         .loss-btn { background: var(--loss-color); }
-        .reset-small { background: #555; margin-top: 8px; font-size: 0.7rem; width: 100%; opacity: 0.6; }
+        
+        /* 補助ボタンのグループ */
+        .sub-btn-group { display: flex; gap: 5px; margin-top: 8px; }
+        .undo-btn { background: #6c5ce7; font-size: 0.75rem; flex: 1; }
+        .reset-small { background: #555; font-size: 0.7rem; flex: 2; opacity: 0.6; }
 
         /* --- 表示画面（ソース）スタイル --- */
         #display-ui { background: transparent; display: none; padding: 10px; }
-        
-        .display-row { 
-            display: flex; 
-            align-items: center; 
-            /* 要素間の隙間をなくし、各要素の幅で位置を制御します */
-            gap: 0; 
-            font-size: 32px; 
-            font-weight: 900; 
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.8); 
-            margin-bottom: 10px; 
-        }
-        
-        /* 非表示設定 */
+        .display-row { display: flex; align-items: center; gap: 0; font-size: 32px; font-weight: 900; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); margin-bottom: 10px; }
         .hidden { display: none !important; }
-        
-        /* 各カラムの幅を固定して揃える */
-        .label { 
-            width: 40px;       /* T, D, S の幅 */
-            text-align: center; 
-            color: #aaa; 
-            margin-right: 10px; /* 文字の後の少しの余白 */
-        }
-        
-        .w-num { 
-            width: 60px;       /* WIN数字の幅（2〜3桁まで対応可） */
-            text-align: center; 
-            color: var(--win-color); 
-        }
-        
-        .slash { 
-            width: 30px;       /* スラッシュの幅 */
-            text-align: center; 
-            opacity: 0.5; 
-        }
-        
-        .l-num { 
-            width: 60px;       /* LOSS数字の幅 */
-            text-align: center; 
-            color: var(--loss-color); 
-        }
+        .label { width: 40px; text-align: center; color: #aaa; margin-right: 10px; }
+        .w-num { width: 60px; text-align: center; color: var(--win-color); }
+        .slash { width: 30px; text-align: center; opacity: 0.5; }
+        .l-num { width: 60px; text-align: center; color: var(--loss-color); }
     </style>
 </head>
 <body>
@@ -82,17 +52,19 @@
     </div>
 
     <script>
-        const bc = new BroadcastChannel('obs_triple_counter_channel');
+        const bc = new BroadcastChannel('obs_triple_counter_undo');
         const urlParams = new URLSearchParams(window.location.search);
         const mode = urlParams.get('mode');
         const counterNames = ["T", "D", "S"];
 
         // データの読み込み
-        let wins = JSON.parse(localStorage.getItem('v3_wins') || "[0, 0, 0]");
-        let losses = JSON.parse(localStorage.getItem('v3_losses') || "[0, 0, 0]");
-        let visibilities = JSON.parse(localStorage.getItem('v3_vis') || "[true, true, true]");
+        let wins = JSON.parse(localStorage.getItem('v4_wins') || "[0, 0, 0]");
+        let losses = JSON.parse(localStorage.getItem('v4_losses') || "[0, 0, 0]");
+        let visibilities = JSON.parse(localStorage.getItem('v4_vis') || "[true, true, true]");
+        
+        // 履歴保存用（Undo用）
+        let history = [];
 
-        // 初期UIの生成
         window.onload = () => {
             if (mode === 'display') {
                 const container = document.getElementById('displays-container');
@@ -123,63 +95,78 @@
                                 <button class="win-btn" onclick="updateVal(${i}, 1, 0)">WIN</button>
                                 <button class="loss-btn" onclick="updateVal(${i}, 0, 1)">LOSS</button>
                             </div>
-                            <button class="reset-small" onclick="resetOne(${i})">RESET</button>
+                            <div class="sub-btn-group">
+                                <button class="undo-btn" onclick="undo(${i})">↩ 戻す</button>
+                                <button class="reset-small" onclick="resetOne(${i})">RESET</button>
+                            </div>
                         </div>`;
                 });
             }
             refreshUI();
         };
 
-        // 表示・非表示の更新
         function updateVis(index, isVisible) {
             visibilities[index] = isVisible;
             sync();
         }
 
-        // 数値の更新
         function updateVal(index, w, l) {
+            // 現在の値を履歴に保存
+            history.push({
+                wins: [...wins],
+                losses: [...losses]
+            });
+            // 履歴が長くなりすぎないよう制限（直近10件など）
+            if (history.length > 10) history.shift();
+
             wins[index] += w;
             losses[index] += l;
             sync();
         }
 
+        // Undo機能の実装
+        function undo(index) {
+            if (history.length > 0) {
+                const lastState = history.pop();
+                wins = lastState.wins;
+                losses = lastState.losses;
+                sync();
+            } else {
+                alert("これ以上戻せません");
+            }
+        }
+
         function resetOne(index) {
             if (confirm(`${counterNames[index]} をリセットしますか？`)) {
+                // リセット前も履歴に保存したい場合はここでも push する
                 wins[index] = 0;
                 losses[index] = 0;
                 sync();
             }
         }
 
-        // データの保存と送信
         function sync() {
-            localStorage.setItem('v3_wins', JSON.stringify(wins));
-            localStorage.setItem('v3_losses', JSON.stringify(losses));
-            localStorage.setItem('v3_vis', JSON.stringify(visibilities));
+            localStorage.setItem('v4_wins', JSON.stringify(wins));
+            localStorage.setItem('v4_losses', JSON.stringify(losses));
+            localStorage.setItem('v4_vis', JSON.stringify(visibilities));
             bc.postMessage({ wins, losses, visibilities });
             refreshUI();
         }
 
-        // 画面表示への反映（エラー防止付き）
         function refreshUI() {
             counterNames.forEach((_, i) => {
-                // 表示画面（ソース側）の更新
                 const row = document.getElementById(`row-${i}`);
                 if (row) {
                     if (visibilities[i]) row.classList.remove('hidden');
                     else row.classList.add('hidden');
-                    
                     document.getElementById(`w-${i}`).textContent = wins[i];
                     document.getElementById(`l-${i}`).textContent = losses[i];
                 }
             });
-            
-            // ドック側のステータス表示
             const status = document.getElementById('status');
             if (status) status.textContent = "Last Update: " + new Date().toLocaleTimeString();
         }
 
-        // メッセージ受信時の処理
         bc.onmessage = (e) => {
             wins = e.data.wins;
             losses = e.data.losses;
@@ -188,8 +175,4 @@
         };
     </script>
 </body>
-
 </html>
-
-
-
