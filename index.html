@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OBS Win/Loss Counter</title>
+    <style>
+        /* 共通設定 */
+        body { margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
+        
+        /* --- 操作画面（ドック）用のスタイル --- */
+        #dock-ui { background: #2b2b2b; color: white; padding: 10px; text-align: center; display: none; }
+        .btn-group { display: flex; gap: 8px; margin-bottom: 10px; }
+        button { flex: 1; padding: 12px; font-size: 1rem; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; }
+        .win-btn { background: #ff4757; color: white; }
+        .loss-btn { background: #1e90ff; color: white; }
+        .reset-btn { background: #444; color: #aaa; width: 100%; font-size: 0.8rem; padding: 5px; }
+
+        /* --- 表示画面（ソース）用のスタイル --- */
+        #display-ui { background: transparent; color: white; font-size: 40px; font-weight: 800; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); display: none; padding: 10px; }
+        .win-count { color: #ff4757; }
+        .loss-count { color: #1e90ff; }
+    </style>
+</head>
+<body>
+
+    <div id="dock-ui">
+        <div class="btn-group">
+            <button class="win-btn" onclick="update(1, 0)">WIN +1</button>
+            <button class="loss-btn" onclick="update(0, 1)">LOSS +1</button>
+        </div>
+        <button class="reset-btn" onclick="resetCount()">RESET</button>
+        <div id="status" style="font-size: 0.7rem; color: #777; margin-top: 5px;">Ready</div>
+    </div>
+
+    <div id="display-ui">
+        <span class="win-count">W: <span id="w-num">0</span></span>
+        <span style="margin: 0 10px;">/</span>
+        <span class="loss-count">L: <span id="l-num">0</span></span>
+    </div>
+
+    <script>
+        const bc = new BroadcastChannel('obs_game_counter');
+        const urlParams = new URLSearchParams(window.location.search);
+        const mode = urlParams.get('mode'); // URLの ?mode=... を取得
+
+        // UIの切り替え
+        if (mode === 'display') {
+            document.getElementById('display-ui').style.display = 'block';
+        } else {
+            document.getElementById('dock-ui').style.display = 'block';
+        }
+
+        // データの読み込み
+        let win = parseInt(localStorage.getItem('gh_win') || 0);
+        let loss = parseInt(localStorage.getItem('gh_loss') || 0);
+
+        // 表示の更新（両方のモードで実行）
+        function refreshUI() {
+            if (document.getElementById('w-num')) document.getElementById('w-num').textContent = win;
+            if (document.getElementById('l-num')) document.getElementById('l-num').textContent = loss;
+        }
+
+        function update(w, l) {
+            win += w; loss += l;
+            saveAndSend();
+        }
+
+        function resetCount() {
+            if (confirm('リセットしますか？')) {
+                win = 0; loss = 0;
+                saveAndSend();
+            }
+        }
+
+        function saveAndSend() {
+            localStorage.setItem('gh_win', win);
+            localStorage.setItem('gh_loss', loss);
+            bc.postMessage({ win, loss });
+            if (document.getElementById('status')) {
+                document.getElementById('status').textContent = `Sent: ${win}W - ${loss}L`;
+            }
+            refreshUI();
+        }
+
+        // 受信処理
+        bc.onmessage = (e) => {
+            win = e.data.win;
+            loss = e.data.loss;
+            refreshUI();
+        };
+
+        // 初回起動時の表示
+        refreshUI();
+    </script>
+</body>
+</html>
