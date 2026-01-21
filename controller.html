@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>勝敗管理ドック</title>
+    <style>
+        body { background: #2b2b2b; color: white; font-family: "Segoe UI", sans-serif; padding: 10px; text-align: center; }
+        .btn-group { display: flex; justify-content: center; gap: 10px; margin-bottom: 15px; }
+        button { font-size: 1rem; font-weight: bold; padding: 12px; cursor: pointer; border: none; border-radius: 6px; flex: 1; transition: opacity 0.2s; }
+        button:active { opacity: 0.7; }
+        .win { background: #ff4757; color: white; }
+        .loss { background: #1e90ff; color: white; }
+        .reset-btn { background: #444; color: #bbb; width: 100%; font-size: 0.8rem; padding: 5px; }
+        #status { font-size: 0.7rem; color: #888; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="btn-group">
+        <button class="win" onclick="update(1, 0)">WIN +1</button>
+        <button class="loss" onclick="update(0, 1)">LOSS +1</button>
+    </div>
+    <button class="reset-btn" onclick="reset()">カウントリセット</button>
+    <div id="status">待機中...</div>
+
+    <script>
+        // 通信チャネルの作成
+        const bc = new BroadcastChannel('obs_counter');
+        
+        // ローカルストレージから読み込み（なければ0）
+        let win = parseInt(localStorage.getItem('win') || 0);
+        let loss = parseInt(localStorage.getItem('loss') || 0);
+
+        function update(w, l) {
+            win += w;
+            loss += l;
+            send();
+        }
+
+        function reset() {
+            if(confirm('カウントを0に戻しますか？')) {
+                win = 0; loss = 0;
+                send();
+            }
+        }
+
+        function send() {
+            localStorage.setItem('win', win);
+            localStorage.setItem('loss', loss);
+            
+            // データを送信
+            bc.postMessage({ win, loss });
+            
+            // 動作確認用テキスト
+            document.getElementById('status').textContent = `送信済み: WIN ${win} / LOSS ${loss}`;
+        }
+
+        // 起動時に現在の値を一度送信
+        window.onload = send;
+    </script>
+</body>
+</html>
