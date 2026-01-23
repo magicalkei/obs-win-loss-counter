@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OBS Triple Counter Pro - Undo Edition</title>
+    <title>OBS Triple Counter Pro - Opacity Control</title>
     <style>
         :root {
             --win-color: #ff4757;
@@ -15,6 +15,12 @@
 
         /* --- 操作画面（ドック）スタイル --- */
         #dock-ui { background: var(--bg-dark); padding: 10px; display: none; height: 100vh; overflow-y: auto; }
+        
+        /* スライダー設定エリア */
+        .setting-panel { background: var(--panel-bg); border-radius: 8px; padding: 10px; margin-bottom: 15px; border: 1px solid #555; }
+        .setting-title { font-size: 0.85rem; font-weight: bold; color: #ccc; margin-bottom: 5px; }
+        input[type=range] { width: 100%; cursor: pointer; }
+
         .counter-panel { background: var(--panel-bg); border-radius: 8px; padding: 10px; margin-bottom: 10px; border: 1px solid #555; }
         .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
         .panel-title { font-size: 0.85rem; font-weight: bold; color: #ccc; }
@@ -25,14 +31,27 @@
         .win-btn { background: var(--win-color); }
         .loss-btn { background: var(--loss-color); }
         
-        /* 補助ボタンのグループ */
         .sub-btn-group { display: flex; gap: 5px; margin-top: 8px; }
         .undo-btn { background: #6c5ce7; font-size: 0.75rem; flex: 1; }
         .reset-small { background: #555; font-size: 0.7rem; flex: 2; opacity: 0.6; }
 
         /* --- 表示画面（ソース）スタイル --- */
         #display-ui { background: transparent; display: none; padding: 10px; }
-        .display-row { display: flex; align-items: center; gap: 0; font-size: 32px; font-weight: 900; text-shadow: 2px 2px 4px rgba(0,0,0,0.8); margin-bottom: 10px; }
+        .display-row { 
+            display: flex; 
+            align-items: center; 
+            gap: 0; 
+            font-size: 32px; 
+            font-weight: 900; 
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8); 
+            margin-bottom: 10px;
+            
+            /* 背景設定 */
+            padding: 5px 10px; /* 文字周りの余白 */
+            border-radius: 8px; /* 角丸 */
+            transition: background-color 0.2s ease; /* 色の変化を滑らかに */
+            /* 初期背景色はJSで設定されます */
+        }
         .hidden { display: none !important; }
         .label { width: 40px; text-align: center; color: #aaa; margin-right: 10px; }
         .w-num { width: 60px; text-align: center; color: var(--win-color); }
@@ -43,6 +62,10 @@
 <body>
 
     <div id="dock-ui">
+        <div class="setting-panel">
+            <div class="setting-title">背景の濃さ</div>
+            <input type="range" id="opacity-slider" min="0" max="1" step="0.05" oninput="updateOpacity(this.value)">
+        </div>
         <div id="controls-container"></div>
         <div id="status" style="font-size: 0.7rem; color: #777; text-align: center; margin-top: 10px;">Ready</div>
     </div>
@@ -52,17 +75,19 @@
     </div>
 
     <script>
-        const bc = new BroadcastChannel('obs_triple_counter_undo');
+        // データ混線防止のためチャンネル名とキーを変更
+        const bc = new BroadcastChannel('obs_triple_counter_v5');
         const urlParams = new URLSearchParams(window.location.search);
         const mode = urlParams.get('mode');
         const counterNames = ["T", "D", "S"];
 
         // データの読み込み
-        let wins = JSON.parse(localStorage.getItem('v4_wins') || "[0, 0, 0]");
-        let losses = JSON.parse(localStorage.getItem('v4_losses') || "[0, 0, 0]");
-        let visibilities = JSON.parse(localStorage.getItem('v4_vis') || "[true, true, true]");
+        let wins = JSON.parse(localStorage.getItem('v5_wins') || "[0, 0, 0]");
+        let losses = JSON.parse(localStorage.getItem('v5_losses') || "[0, 0, 0]");
+        let visibilities = JSON.parse(localStorage.getItem('v5_vis') || "[true, true, true]");
+        // 透過率の読み込み（初期値0.5）
+        let bgOpacity = parseFloat(localStorage.getItem('v5_opacity') || "0.5");
         
-        // 履歴保存用（Undo用）
         let history = [];
 
         window.onload = () => {
@@ -79,8 +104,12 @@
                         </div>`;
                 });
             } else {
-                const container = document.getElementById('controls-container');
+                // ドック側の初期化
                 document.getElementById('dock-ui').style.display = 'block';
+                // スライダーの初期位置を設定
+                document.getElementById('opacity-slider').value = bgOpacity;
+
+                const container = document.getElementById('controls-container');
                 counterNames.forEach((name, i) => {
                     const isChecked = visibilities[i] ? 'checked' : '';
                     container.innerHTML += `
@@ -105,26 +134,25 @@
             refreshUI();
         };
 
+        // 透過率の更新処理
+        function updateOpacity(value) {
+            bgOpacity = parseFloat(value);
+            sync();
+        }
+
         function updateVis(index, isVisible) {
             visibilities[index] = isVisible;
             sync();
         }
 
         function updateVal(index, w, l) {
-            // 現在の値を履歴に保存
-            history.push({
-                wins: [...wins],
-                losses: [...losses]
-            });
-            // 履歴が長くなりすぎないよう制限（直近10件など）
+            history.push({ wins: [...wins], losses: [...losses] });
             if (history.length > 10) history.shift();
-
             wins[index] += w;
             losses[index] += l;
             sync();
         }
 
-        // Undo機能の実装
         function undo(index) {
             if (history.length > 0) {
                 const lastState = history.pop();
@@ -138,7 +166,6 @@
 
         function resetOne(index) {
             if (confirm(`${counterNames[index]} をリセットしますか？`)) {
-                // リセット前も履歴に保存したい場合はここでも push する
                 wins[index] = 0;
                 losses[index] = 0;
                 sync();
@@ -146,23 +173,43 @@
         }
 
         function sync() {
-            localStorage.setItem('v4_wins', JSON.stringify(wins));
-            localStorage.setItem('v4_losses', JSON.stringify(losses));
-            localStorage.setItem('v4_vis', JSON.stringify(visibilities));
-            bc.postMessage({ wins, losses, visibilities });
+            localStorage.setItem('v5_wins', JSON.stringify(wins));
+            localStorage.setItem('v5_losses', JSON.stringify(losses));
+            localStorage.setItem('v5_vis', JSON.stringify(visibilities));
+            // 透過率も保存
+            localStorage.setItem('v5_opacity', bgOpacity.toString());
+            
+            // 全データを送信
+            bc.postMessage({ wins, losses, visibilities, bgOpacity });
             refreshUI();
         }
 
         function refreshUI() {
-            counterNames.forEach((_, i) => {
-                const row = document.getElementById(`row-${i}`);
-                if (row) {
-                    if (visibilities[i]) row.classList.remove('hidden');
-                    else row.classList.add('hidden');
-                    document.getElementById(`w-${i}`).textContent = wins[i];
-                    document.getElementById(`l-${i}`).textContent = losses[i];
-                }
-            });
+            // 表示画面側の更新
+            if (document.getElementById('display-ui').style.display === 'block') {
+                counterNames.forEach((_, i) => {
+                    const row = document.getElementById(`row-${i}`);
+                    if (row) {
+                        // 表示・非表示
+                        if (visibilities[i]) row.classList.remove('hidden');
+                        else row.classList.add('hidden');
+                        
+                        // 値の更新
+                        document.getElementById(`w-${i}`).textContent = wins[i];
+                        document.getElementById(`l-${i}`).textContent = losses[i];
+
+                        // 【重要】背景色の更新（rgbaで透過率を指定）
+                        row.style.backgroundColor = `rgba(0, 0, 0, ${bgOpacity})`;
+                    }
+                });
+            }
+            
+            // ドック側のスライダー位置も同期（他で変更された場合用）
+            const slider = document.getElementById('opacity-slider');
+            if (slider) {
+                slider.value = bgOpacity;
+            }
+
             const status = document.getElementById('status');
             if (status) status.textContent = "Last Update: " + new Date().toLocaleTimeString();
         }
@@ -171,6 +218,8 @@
             wins = e.data.wins;
             losses = e.data.losses;
             visibilities = e.data.visibilities;
+            // 受け取った透過率を反映
+            bgOpacity = e.data.bgOpacity;
             refreshUI();
         };
     </script>
