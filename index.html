@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OBS Triple Counter - Ver.1.1</title>
+    <title>OBS Triple Counter - Ver.1.2</title>
     <style>
         :root {
             --win-color: #ff4757;
@@ -15,20 +15,19 @@
         body { 
             margin: 0; 
             padding: 0; 
-            /* OWっぽいフォント設定 */
             font-family: 'Impact', 'Haettenschweiler', 'Arial Narrow Bold', sans-serif; 
             color: white; 
             background: transparent;
             overflow-y: auto;
         }
 
-        /* --- スクロールバーのデザイン --- */
+        /* --- スクロールバー --- */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: var(--bg-dark); }
         ::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #777; }
 
-        /* --- 操作画面（ドック）スタイル --- */
+        /* --- 操作画面（ドック） --- */
         #dock-ui { 
             background: var(--bg-dark); 
             padding: 10px; 
@@ -36,7 +35,7 @@
             box-sizing: border-box; 
             min-height: 100vh;
             flex-direction: column; 
-            font-family: 'Segoe UI', sans-serif; /* ドックは読みやすいフォントに戻す */
+            font-family: 'Segoe UI', sans-serif;
         }
         
         .counter-panel { background: var(--panel-bg); border-radius: 8px; padding: 10px; margin-bottom: 10px; border: 1px solid #555; }
@@ -68,43 +67,55 @@
         .setting-title { font-size: 0.85rem; font-weight: bold; color: #ccc; margin-bottom: 5px; text-transform: lowercase; }
         input[type=range] { width: 100%; cursor: pointer; }
 
-        /* --- 表示画面（ソース）スタイル --- */
+        /* --- 表示画面（ソース） --- */
         #display-ui { background: transparent; display: none; padding: 10px; }
         
         .display-row { 
             display: grid; 
-            /* 【修正】余白削減のため列幅を縮小 */
             grid-template-columns: 40px 55px 20px 55px; 
             align-items: center; 
             width: fit-content; 
             font-size: 38px; 
-            font-weight: 400; /* Impactなどは元々太いのでnormalに */
-            /* OW風の斜体 */
+            font-weight: 400; 
             font-style: italic;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.8); 
-            margin-bottom: 8px; /* 行間も少し詰める */
-            /* 【修正】パディングを大幅に削減 */
+            margin-bottom: 8px;
             padding: 2px 8px; 
-            border-radius: 4px; /* 角丸も少し鋭角に */
+            border-radius: 4px; 
             transition: background-color 0.2s ease;
             font-variant-numeric: tabular-nums;
-            /* 文字間を少し詰める */
             letter-spacing: 1px;
         }
         .hidden { display: none !important; }
-        .label { text-align: center; color: #ffffff; margin-right: 5px; } /* 右余白削減 */
+        .label { text-align: center; color: #ffffff; margin-right: 5px; }
         .w-num { text-align: center; color: var(--win-color); }
-        .slash { text-align: center; color: #ffffff; opacity: 0.8; transform: skew(-10deg); /* スラッシュも少し傾ける */ }
+        .slash { text-align: center; color: #ffffff; opacity: 0.8; transform: skew(-10deg); }
         .l-num { text-align: center; color: var(--loss-color); }
 
-        /* --- 軽量アニメーション（ポップ） --- */
+        /* --- アニメーション設定 --- */
+        
+        /* WIN: ポップ（拡大＆発光） */
         @keyframes pop {
             0% { transform: scale(1); }
-            50% { transform: scale(1.3); color: #fff; } /* 一瞬大きくなって白くなる */
+            50% { transform: scale(1.3); color: #fff; } 
             100% { transform: scale(1); }
         }
         .pop-anim {
             animation: pop 0.2s ease-out;
+        }
+
+        /* LOSS: シェイク（振動） */
+        @keyframes shake {
+            0% { transform: translateX(0); }
+            20% { transform: translateX(-4px); }
+            40% { transform: translateX(4px); }
+            60% { transform: translateX(-4px); }
+            80% { transform: translateX(4px); }
+            100% { transform: translateX(0); }
+        }
+        .shake-anim {
+            animation: shake 0.3s ease-in-out;
+            /* 色は変えず、形だけ揺らす */
         }
 
     </style>
@@ -119,7 +130,7 @@
             <input type="range" id="opacity-slider" min="0" max="1" step="0.05" oninput="updateOpacity(this.value)">
         </div>
 
-        <div id="status" style="font-size: 0.7rem; color: #777; text-align: center; margin-bottom: 10px;">Ready (Ver.1.1)</div>
+        <div id="status" style="font-size: 0.7rem; color: #777; text-align: center; margin-bottom: 10px;">Ready (Ver.1.2)</div>
     </div>
 
     <div id="display-ui">
@@ -127,15 +138,15 @@
     </div>
 
     <script>
-        const bc = new BroadcastChannel('obs_triple_v1_1');
+        const bc = new BroadcastChannel('obs_triple_v1_2');
         const urlParams = new URLSearchParams(window.location.search);
         const mode = urlParams.get('mode');
         const counterNames = ["T", "D", "S"];
 
-        let wins = JSON.parse(localStorage.getItem('v1_1_wins') || "[0, 0, 0]");
-        let losses = JSON.parse(localStorage.getItem('v1_1_losses') || "[0, 0, 0]");
-        let visibilities = JSON.parse(localStorage.getItem('v1_1_vis') || "[true, true, true]");
-        let bgOpacity = parseFloat(localStorage.getItem('v1_1_opacity') || "0.5");
+        let wins = JSON.parse(localStorage.getItem('v1_2_wins') || "[0, 0, 0]");
+        let losses = JSON.parse(localStorage.getItem('v1_2_losses') || "[0, 0, 0]");
+        let visibilities = JSON.parse(localStorage.getItem('v1_2_vis') || "[true, true, true]");
+        let bgOpacity = parseFloat(localStorage.getItem('v1_2_opacity') || "0.5");
         
         let history = [];
 
@@ -192,7 +203,7 @@
 
         function updateOpacity(value) {
             bgOpacity = parseFloat(value);
-            sync(null, null); // アニメーションなし
+            sync(null, null);
         }
 
         function updateVis(index, isVisible) {
@@ -206,7 +217,7 @@
             wins[index] += w;
             losses[index] += l;
             
-            // アニメーション対象を指定して同期
+            // アニメーションのタイプ分け
             const type = w > 0 ? 'win' : 'loss';
             sync(index, type);
         }
@@ -229,18 +240,17 @@
         }
 
         function sync(animIndex, animType) {
-            localStorage.setItem('v1_1_wins', JSON.stringify(wins));
-            localStorage.setItem('v1_1_losses', JSON.stringify(losses));
-            localStorage.setItem('v1_1_vis', JSON.stringify(visibilities));
-            localStorage.setItem('v1_1_opacity', bgOpacity.toString());
-            // アニメーション情報も一緒に送る
+            localStorage.setItem('v1_2_wins', JSON.stringify(wins));
+            localStorage.setItem('v1_2_losses', JSON.stringify(losses));
+            localStorage.setItem('v1_2_vis', JSON.stringify(visibilities));
+            localStorage.setItem('v1_2_opacity', bgOpacity.toString());
             bc.postMessage({ wins, losses, visibilities, bgOpacity, animIndex, animType });
             refreshUI(animIndex, animType);
         }
 
         function refreshUI(animIndex = null, animType = null) {
             counterNames.forEach((_, i) => {
-                // ディスプレイ側の更新
+                // ディスプレイ側
                 const row = document.getElementById(`row-${i}`);
                 if (row) {
                     if (visibilities[i]) row.classList.remove('hidden');
@@ -253,17 +263,18 @@
                     lEl.textContent = losses[i];
                     row.style.backgroundColor = `rgba(0, 0, 0, ${bgOpacity})`;
 
-                    // アニメーション発火処理
+                    // アニメーション分岐処理
                     if (i === animIndex) {
                         const target = animType === 'win' ? wEl : lEl;
-                        // クラスを一旦外して付け直すことでアニメーションを再生
-                        target.classList.remove('pop-anim');
-                        void target.offsetWidth; // リフロー強制
-                        target.classList.add('pop-anim');
+                        const animClass = animType === 'win' ? 'pop-anim' : 'shake-anim';
+                        
+                        target.classList.remove('pop-anim', 'shake-anim');
+                        void target.offsetWidth; // リフロー
+                        target.classList.add(animClass);
                     }
                 }
 
-                // ドック側のタイトルスコア更新
+                // ドック側タイトル
                 const titleScore = document.getElementById(`title-score-${i}`);
                 if (titleScore) {
                     titleScore.textContent = `${wins[i]}-${losses[i]}`;
@@ -279,7 +290,6 @@
             losses = e.data.losses;
             visibilities = e.data.visibilities;
             bgOpacity = e.data.bgOpacity;
-            // 受信側でもアニメーションを再生
             refreshUI(e.data.animIndex, e.data.animType);
         };
     </script>
