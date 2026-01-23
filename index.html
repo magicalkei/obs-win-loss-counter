@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OBS Triple Counter - Scroll Fix</title>
+    <title>OBS Triple Counter - Custom Scrollbar</title>
     <style>
         :root {
             --win-color: #ff4757;
@@ -12,14 +12,28 @@
             --panel-bg: #3d3d3d;
         }
         
-        /* 【修正1】overflow: hidden を削除し、auto（自動）に変更 */
         body { 
             margin: 0; 
             padding: 0; 
             font-family: 'Segoe UI', sans-serif; 
             color: white; 
             background: transparent;
-            overflow-y: auto; /* 必要に応じて縦スクロールバーを出す */
+            overflow-y: auto;
+        }
+
+        /* --- スクロールバーのデザインカスタマイズ --- */
+        ::-webkit-scrollbar {
+            width: 8px; /* 幅を細めに設定 */
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--bg-dark); 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #555; 
+            border-radius: 4px; 
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #777; 
         }
 
         /* --- 操作画面（ドック）スタイル --- */
@@ -28,7 +42,7 @@
             padding: 10px; 
             display: none; 
             box-sizing: border-box; 
-            min-height: 100vh; /* 最低でも画面の高さを持つ */
+            min-height: 100vh;
             flex-direction: column; 
         }
         
@@ -46,12 +60,11 @@
         .undo-btn { background: #6c5ce7; font-size: 0.75rem; flex: 1; }
         .reset-small { background: #555; font-size: 0.7rem; flex: 2; opacity: 0.6; }
 
-        /* 【修正2】margin-top: auto を削除し、すぐ下に配置されるように変更 */
         .setting-panel { 
             background: var(--panel-bg); 
             border-radius: 8px; 
             padding: 10px; 
-            margin-bottom: 10px; /* 下に少し余白 */
+            margin-bottom: 10px; 
             border: 1px solid #555; 
         }
         .setting-title { font-size: 0.85rem; font-weight: bold; color: #ccc; margin-bottom: 5px; text-transform: lowercase; }
@@ -116,7 +129,6 @@
                 document.getElementById('display-ui').style.display = 'block';
                 document.getElementById('dock-ui').style.display = 'none';
                 
-                // overflow設定をリセット（表示画面ではスクロールバーを出さないため）
                 document.body.style.overflow = 'hidden';
 
                 counterNames.forEach((name, i) => {
