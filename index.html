@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OBS Triple Counter - Custom Scrollbar</title>
+    <title>OBS Triple Counter - UI Polish</title>
     <style>
         :root {
             --win-color: #ff4757;
@@ -21,20 +21,11 @@
             overflow-y: auto;
         }
 
-        /* --- スクロールバーのデザインカスタマイズ --- */
-        ::-webkit-scrollbar {
-            width: 8px; /* 幅を細めに設定 */
-        }
-        ::-webkit-scrollbar-track {
-            background: var(--bg-dark); 
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #555; 
-            border-radius: 4px; 
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #777; 
-        }
+        /* --- スクロールバーのデザイン --- */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-dark); }
+        ::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #777; }
 
         /* --- 操作画面（ドック）スタイル --- */
         #dock-ui { 
@@ -48,17 +39,28 @@
         
         .counter-panel { background: var(--panel-bg); border-radius: 8px; padding: 10px; margin-bottom: 10px; border: 1px solid #555; }
         .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-        .panel-title { font-size: 0.85rem; font-weight: bold; color: #ccc; }
+        
+        /* タイトル横の数字を見やすく調整 */
+        .panel-title { font-size: 0.9rem; font-weight: bold; color: #ccc; }
+        .title-score { font-weight: normal; margin-left: 8px; color: #fff; background: #555; padding: 1px 6px; border-radius: 4px; font-size: 0.8rem; }
+        
         .toggle-label { font-size: 0.75rem; color: #aaa; display: flex; align-items: center; gap: 4px; cursor: pointer; }
 
         .btn-group { display: flex; gap: 5px; }
-        button { flex: 1; padding: 8px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; color: white; }
+        button { flex: 1; padding: 8px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; color: white; transition: opacity 0.2s; }
+        button:active { opacity: 0.7; }
         .win-btn { background: var(--win-color); }
         .loss-btn { background: var(--loss-color); }
         
         .sub-btn-group { display: flex; gap: 5px; margin-top: 8px; }
-        .undo-btn { background: #6c5ce7; font-size: 0.75rem; flex: 1; }
-        .reset-small { background: #555; font-size: 0.7rem; flex: 2; opacity: 0.6; }
+        /* back/resetボタンの高さと幅を調整 */
+        .sub-btn { 
+            padding: 4px 0; /* 高さを低く */
+            font-size: 0.75rem; 
+            flex: 1; /* 幅を均等に */
+        }
+        .undo-btn { background: #6c5ce7; }
+        .reset-small { background: #555; opacity: 0.8; }
 
         .setting-panel { 
             background: var(--panel-bg); 
@@ -74,14 +76,15 @@
         #display-ui { background: transparent; display: none; padding: 10px; }
         .display-row { 
             display: grid; 
-            grid-template-columns: 45px 65px 30px 65px; 
+            /* フォントサイズ拡大に合わせて列幅を調整 */
+            grid-template-columns: 50px 75px 30px 75px; 
             align-items: center; 
             width: fit-content; 
-            font-size: 32px; 
+            font-size: 38px; /* フォントサイズアップ */
             font-weight: 900; 
             text-shadow: 2px 2px 4px rgba(0,0,0,0.8); 
-            margin-bottom: 10px;
-            padding: 4px 12px; 
+            margin-bottom: 12px;
+            padding: 6px 16px; 
             border-radius: 8px; 
             transition: background-color 0.2s ease;
             font-variant-numeric: tabular-nums;
@@ -89,7 +92,8 @@
         .hidden { display: none !important; }
         .label { text-align: center; color: #ffffff; margin-right: 10px; }
         .w-num { text-align: center; color: var(--win-color); }
-        .slash { text-align: center; opacity: 0.5; }
+        /* スラッシュの色をラベルと同じ白に変更 */
+        .slash { text-align: center; color: #ffffff; opacity: 1; }
         .l-num { text-align: center; color: var(--loss-color); }
     </style>
 </head>
@@ -111,15 +115,15 @@
     </div>
 
     <script>
-        const bc = new BroadcastChannel('obs_triple_v9_stable');
+        const bc = new BroadcastChannel('obs_triple_v13_ui');
         const urlParams = new URLSearchParams(window.location.search);
         const mode = urlParams.get('mode');
         const counterNames = ["T", "D", "S"];
 
-        let wins = JSON.parse(localStorage.getItem('v9_wins') || "[0, 0, 0]");
-        let losses = JSON.parse(localStorage.getItem('v9_losses') || "[0, 0, 0]");
-        let visibilities = JSON.parse(localStorage.getItem('v9_vis') || "[true, true, true]");
-        let bgOpacity = parseFloat(localStorage.getItem('v9_opacity') || "0.5");
+        let wins = JSON.parse(localStorage.getItem('v13_wins') || "[0, 0, 0]");
+        let losses = JSON.parse(localStorage.getItem('v13_losses') || "[0, 0, 0]");
+        let visibilities = JSON.parse(localStorage.getItem('v13_vis') || "[true, true, true]");
+        let bgOpacity = parseFloat(localStorage.getItem('v13_opacity') || "0.5");
         
         let history = [];
 
@@ -128,7 +132,6 @@
                 const container = document.getElementById('displays-container');
                 document.getElementById('display-ui').style.display = 'block';
                 document.getElementById('dock-ui').style.display = 'none';
-                
                 document.body.style.overflow = 'hidden';
 
                 counterNames.forEach((name, i) => {
@@ -153,7 +156,10 @@
                     container.innerHTML += `
                         <div class="counter-panel">
                             <div class="panel-header">
-                                <div class="panel-title">${name}</div>
+                                <div class="panel-title">
+                                    ${name}
+                                    <span id="title-score-${i}" class="title-score">0-0</span>
+                                </div>
                                 <label class="toggle-label">
                                     <input type="checkbox" ${isChecked} onchange="updateVis(${i}, this.checked)"> show
                                 </label>
@@ -163,8 +169,8 @@
                                 <button class="loss-btn" onclick="updateVal(${i}, 0, 1)">LOSS</button>
                             </div>
                             <div class="sub-btn-group">
-                                <button class="undo-btn" onclick="undo()">back</button>
-                                <button class="reset-small" onclick="resetOne(${i})">RESET</button>
+                                <button class="sub-btn undo-btn" onclick="undo()">back</button>
+                                <button class="sub-btn reset-small" onclick="resetOne(${i})">reset</button>
                             </div>
                         </div>`;
                 });
@@ -200,7 +206,7 @@
         }
 
         function resetOne(index) {
-            if (confirm(`${counterNames[index]} をリセットしますか？`)) {
+            if (confirm(`${counterNames[index]} reset?`)) {
                 wins[index] = 0;
                 losses[index] = 0;
                 sync();
@@ -208,16 +214,17 @@
         }
 
         function sync() {
-            localStorage.setItem('v9_wins', JSON.stringify(wins));
-            localStorage.setItem('v9_losses', JSON.stringify(losses));
-            localStorage.setItem('v9_vis', JSON.stringify(visibilities));
-            localStorage.setItem('v9_opacity', bgOpacity.toString());
+            localStorage.setItem('v13_wins', JSON.stringify(wins));
+            localStorage.setItem('v13_losses', JSON.stringify(losses));
+            localStorage.setItem('v13_vis', JSON.stringify(visibilities));
+            localStorage.setItem('v13_opacity', bgOpacity.toString());
             bc.postMessage({ wins, losses, visibilities, bgOpacity });
             refreshUI();
         }
 
         function refreshUI() {
             counterNames.forEach((_, i) => {
+                // ディスプレイ側の更新
                 const row = document.getElementById(`row-${i}`);
                 if (row) {
                     if (visibilities[i]) row.classList.remove('hidden');
@@ -226,6 +233,12 @@
                     document.getElementById(`w-${i}`).textContent = wins[i];
                     document.getElementById(`l-${i}`).textContent = losses[i];
                     row.style.backgroundColor = `rgba(0, 0, 0, ${bgOpacity})`;
+                }
+
+                // ドック側のタイトルスコア更新
+                const titleScore = document.getElementById(`title-score-${i}`);
+                if (titleScore) {
+                    titleScore.textContent = `${wins[i]}-${losses[i]}`;
                 }
             });
             
