@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OBS Triple Counter - Final Stable</title>
+    <title>OBS Triple Counter - Opacity Sync</title>
     <style>
         :root {
             --win-color: #ff4757;
@@ -13,7 +13,7 @@
         }
         body { margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; color: white; overflow: hidden; }
 
-        /* --- 操作画面（ドック）スタイル --- */
+        /* --- 操作画面（ドック） --- */
         #dock-ui { 
             background: var(--bg-dark); 
             padding: 10px; 
@@ -23,7 +23,6 @@
             display: flex; 
             flex-direction: column; 
         }
-        
         .counter-panel { background: var(--panel-bg); border-radius: 8px; padding: 10px; margin-bottom: 10px; border: 1px solid #555; }
         .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
         .panel-title { font-size: 0.85rem; font-weight: bold; color: #ccc; }
@@ -40,30 +39,29 @@
 
         /* スライダーを一番下に配置 */
         .setting-panel { background: var(--panel-bg); border-radius: 8px; padding: 10px; margin-top: auto; margin-bottom: 20px; border: 1px solid #555; }
-        .setting-title { font-size: 0.85rem; font-weight: bold; color: #ccc; margin-bottom: 5px; text-transform: lowercase; }
+        .setting-title { font-size: 0.85rem; font-weight: bold; color: #ccc; margin-bottom: 5px; }
         input[type=range] { width: 100%; cursor: pointer; }
 
-        /* --- 表示画面（ソース）スタイル --- */
+        /* --- 表示画面（ソース） --- */
         #display-ui { background: transparent; display: none; padding: 10px; }
         .display-row { 
-            display: grid; /* グリッドで列を固定 */
-            grid-template-columns: 45px 65px 30px 65px; 
+            display: flex; 
+            width: fit-content; /* 背景を文字の範囲に合わせる */
             align-items: center; 
-            width: fit-content; /* 背景を文字範囲に合わせる */
+            gap: 0; 
             font-size: 32px; 
             font-weight: 900; 
             text-shadow: 2px 2px 4px rgba(0,0,0,0.8); 
             margin-bottom: 10px;
-            padding: 4px 12px; 
+            padding: 5px 15px; 
             border-radius: 8px; 
             transition: background-color 0.2s ease;
-            font-variant-numeric: tabular-nums;
         }
         .hidden { display: none !important; }
-        .label { text-align: center; color: #ffffff; margin-right: 10px; } /* 文字を明るく(白) */
-        .w-num { text-align: center; color: var(--win-color); }
-        .slash { text-align: center; opacity: 0.5; }
-        .l-num { text-align: center; color: var(--loss-color); }
+        .label { width: 40px; text-align: center; color: #eee; margin-right: 10px; } /* 文字を明るく修正 */
+        .w-num { width: 60px; text-align: center; color: var(--win-color); }
+        .slash { width: 30px; text-align: center; opacity: 0.5; }
+        .l-num { width: 60px; text-align: center; color: var(--loss-color); }
     </style>
 </head>
 <body>
@@ -83,16 +81,16 @@
     </div>
 
     <script>
-        const bc = new BroadcastChannel('obs_triple_v9_stable');
+        const bc = new BroadcastChannel('obs_triple_v10_stable');
         const urlParams = new URLSearchParams(window.location.search);
         const mode = urlParams.get('mode');
-        const counterNames = ["T", "D", "S"];
+        // FPSタイトルに合わせたラベル設定
+        const counterNames = ["VALORANT", "OVERWATCH", "APEX"];
 
-        // データの読み込み
-        let wins = JSON.parse(localStorage.getItem('v9_wins') || "[0, 0, 0]");
-        let losses = JSON.parse(localStorage.getItem('v9_losses') || "[0, 0, 0]");
-        let visibilities = JSON.parse(localStorage.getItem('v9_vis') || "[true, true, true]");
-        let bgOpacity = parseFloat(localStorage.getItem('v9_opacity') || "0.5");
+        let wins = JSON.parse(localStorage.getItem('v10_wins') || "[0, 0, 0]");
+        let losses = JSON.parse(localStorage.getItem('v10_losses') || "[0, 0, 0]");
+        let visibilities = JSON.parse(localStorage.getItem('v10_vis') || "[true, true, true]");
+        let bgOpacity = parseFloat(localStorage.getItem('v10_opacity') || "0.5");
         
         let history = [];
 
@@ -100,22 +98,17 @@
             if (mode === 'display') {
                 const container = document.getElementById('displays-container');
                 document.getElementById('display-ui').style.display = 'block';
-                document.getElementById('dock-ui').style.display = 'none'; // ディスプレイ時はドックを隠す
                 counterNames.forEach((name, i) => {
                     container.innerHTML += `
                         <div class="display-row" id="row-${i}">
-                            <span class="label">${name}</span>
+                            <span class="label">${name[0]}</span>
                             <span class="w-num" id="w-${i}">${wins[i]}</span>
                             <span class="slash">/</span>
                             <span class="l-num" id="l-${i}">${losses[i]}</span>
                         </div>`;
                 });
             } else {
-                // ドック側の初期化
-                const dockUi = document.getElementById('dock-ui');
-                dockUi.style.display = 'flex';
-                document.getElementById('display-ui').style.display = 'none';
-                
+                document.getElementById('dock-ui').style.display = 'flex';
                 document.getElementById('opacity-slider').value = bgOpacity;
 
                 const container = document.getElementById('controls-container');
@@ -171,18 +164,17 @@
         }
 
         function resetOne(index) {
-            if (confirm(`${counterNames[index]} をリセットしますか？`)) {
-                wins[index] = 0;
-                losses[index] = 0;
+            if (confirm(`${counterNames[index]} reset?`)) {
+                wins[index] = 0; losses[index] = 0;
                 sync();
             }
         }
 
         function sync() {
-            localStorage.setItem('v9_wins', JSON.stringify(wins));
-            localStorage.setItem('v9_losses', JSON.stringify(losses));
-            localStorage.setItem('v9_vis', JSON.stringify(visibilities));
-            localStorage.setItem('v9_opacity', bgOpacity.toString());
+            localStorage.setItem('v10_wins', JSON.stringify(wins));
+            localStorage.setItem('v10_losses', JSON.stringify(losses));
+            localStorage.setItem('v10_vis', JSON.stringify(visibilities));
+            localStorage.setItem('v10_opacity', bgOpacity.toString());
             bc.postMessage({ wins, losses, visibilities, bgOpacity });
             refreshUI();
         }
@@ -193,13 +185,11 @@
                 if (row) {
                     if (visibilities[i]) row.classList.remove('hidden');
                     else row.classList.add('hidden');
-                    
                     document.getElementById(`w-${i}`).textContent = wins[i];
                     document.getElementById(`l-${i}`).textContent = losses[i];
                     row.style.backgroundColor = `rgba(0, 0, 0, ${bgOpacity})`;
                 }
             });
-            
             const slider = document.getElementById('opacity-slider');
             if (slider) slider.value = bgOpacity;
 
