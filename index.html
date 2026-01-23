@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OBS Triple Counter Pro - Opacity Control</title>
+    <title>OBS Triple Counter Pro - Refined</title>
     <style>
         :root {
             --win-color: #ff4757;
@@ -14,13 +14,8 @@
         body { margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; color: white; overflow: hidden; }
 
         /* --- 操作画面（ドック）スタイル --- */
-        #dock-ui { background: var(--bg-dark); padding: 10px; display: none; height: 100vh; overflow-y: auto; }
+        #dock-ui { background: var(--bg-dark); padding: 10px; display: none; height: 100vh; overflow-y: auto; display: flex; flex-direction: column; }
         
-        /* スライダー設定エリア */
-        .setting-panel { background: var(--panel-bg); border-radius: 8px; padding: 10px; margin-bottom: 15px; border: 1px solid #555; }
-        .setting-title { font-size: 0.85rem; font-weight: bold; color: #ccc; margin-bottom: 5px; }
-        input[type=range] { width: 100%; cursor: pointer; }
-
         .counter-panel { background: var(--panel-bg); border-radius: 8px; padding: 10px; margin-bottom: 10px; border: 1px solid #555; }
         .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
         .panel-title { font-size: 0.85rem; font-weight: bold; color: #ccc; }
@@ -35,25 +30,28 @@
         .undo-btn { background: #6c5ce7; font-size: 0.75rem; flex: 1; }
         .reset-small { background: #555; font-size: 0.7rem; flex: 2; opacity: 0.6; }
 
+        /* 設定パネル（一番下に配置） */
+        .setting-panel { background: var(--panel-bg); border-radius: 8px; padding: 10px; margin-top: auto; margin-bottom: 20px; border: 1px solid #555; }
+        .setting-title { font-size: 0.85rem; font-weight: bold; color: #ccc; margin-bottom: 5px; text-transform: capitalize; }
+        input[type=range] { width: 100%; cursor: pointer; }
+
         /* --- 表示画面（ソース）スタイル --- */
         #display-ui { background: transparent; display: none; padding: 10px; }
         .display-row { 
             display: flex; 
+            width: fit-content; /* 背景を文字の範囲に合わせる */
             align-items: center; 
             gap: 0; 
             font-size: 32px; 
             font-weight: 900; 
             text-shadow: 2px 2px 4px rgba(0,0,0,0.8); 
-            margin-bottom: 10px;
-            
-            /* 背景設定 */
-            padding: 5px 10px; /* 文字周りの余白 */
-            border-radius: 8px; /* 角丸 */
-            transition: background-color 0.2s ease; /* 色の変化を滑らかに */
-            /* 初期背景色はJSで設定されます */
+            margin-bottom: 8px;
+            padding: 4px 12px; 
+            border-radius: 6px; 
+            transition: background-color 0.2s ease;
         }
         .hidden { display: none !important; }
-        .label { width: 40px; text-align: center; color: #aaa; margin-right: 10px; }
+        .label { width: 40px; text-align: center; color: #eee; margin-right: 10px; } /* 文字を明るく修正 */
         .w-num { width: 60px; text-align: center; color: var(--win-color); }
         .slash { width: 30px; text-align: center; opacity: 0.5; }
         .l-num { width: 60px; text-align: center; color: var(--loss-color); }
@@ -62,12 +60,14 @@
 <body>
 
     <div id="dock-ui">
+        <div id="controls-container"></div>
+        
+        <div id="status" style="font-size: 0.7rem; color: #777; text-align: center; margin-top: 10px; margin-bottom: 10px;">Ready</div>
+
         <div class="setting-panel">
-            <div class="setting-title">背景の濃さ</div>
+            <div class="setting-title">opacity</div>
             <input type="range" id="opacity-slider" min="0" max="1" step="0.05" oninput="updateOpacity(this.value)">
         </div>
-        <div id="controls-container"></div>
-        <div id="status" style="font-size: 0.7rem; color: #777; text-align: center; margin-top: 10px;">Ready</div>
     </div>
 
     <div id="display-ui">
@@ -75,19 +75,15 @@
     </div>
 
     <script>
-        // データ混線防止のためチャンネル名とキーを変更
-        const bc = new BroadcastChannel('obs_triple_counter_v5');
+        const bc = new BroadcastChannel('obs_triple_counter_v6');
         const urlParams = new URLSearchParams(window.location.search);
         const mode = urlParams.get('mode');
         const counterNames = ["T", "D", "S"];
 
-        // データの読み込み
-        let wins = JSON.parse(localStorage.getItem('v5_wins') || "[0, 0, 0]");
-        let losses = JSON.parse(localStorage.getItem('v5_losses') || "[0, 0, 0]");
-        let visibilities = JSON.parse(localStorage.getItem('v5_vis') || "[true, true, true]");
-        // 透過率の読み込み（初期値0.5）
-        let bgOpacity = parseFloat(localStorage.getItem('v5_opacity') || "0.5");
-        
+        let wins = JSON.parse(localStorage.getItem('v6_wins') || "[0, 0, 0]");
+        let losses = JSON.parse(localStorage.getItem('v6_losses') || "[0, 0, 0]");
+        let visibilities = JSON.parse(localStorage.getItem('v6_vis') || "[true, true, true]");
+        let bgOpacity = parseFloat(localStorage.getItem('v6_opacity') || "0.5");
         let history = [];
 
         window.onload = () => {
@@ -104,9 +100,7 @@
                         </div>`;
                 });
             } else {
-                // ドック側の初期化
-                document.getElementById('dock-ui').style.display = 'block';
-                // スライダーの初期位置を設定
+                document.getElementById('dock-ui').style.display = 'flex';
                 document.getElementById('opacity-slider').value = bgOpacity;
 
                 const container = document.getElementById('controls-container');
@@ -117,7 +111,7 @@
                             <div class="panel-header">
                                 <div class="panel-title">${name}</div>
                                 <label class="toggle-label">
-                                    <input type="checkbox" ${isChecked} onchange="updateVis(${i}, this.checked)"> 表示
+                                    <input type="checkbox" ${isChecked} onchange="updateVis(${i}, this.checked)"> show
                                 </label>
                             </div>
                             <div class="btn-group">
@@ -125,7 +119,7 @@
                                 <button class="loss-btn" onclick="updateVal(${i}, 0, 1)">LOSS</button>
                             </div>
                             <div class="sub-btn-group">
-                                <button class="undo-btn" onclick="undo(${i})">↩ 戻す</button>
+                                <button class="undo-btn" onclick="undo(${i})">back</button>
                                 <button class="reset-small" onclick="resetOne(${i})">RESET</button>
                             </div>
                         </div>`;
@@ -134,7 +128,6 @@
             refreshUI();
         };
 
-        // 透過率の更新処理
         function updateOpacity(value) {
             bgOpacity = parseFloat(value);
             sync();
@@ -159,8 +152,6 @@
                 wins = lastState.wins;
                 losses = lastState.losses;
                 sync();
-            } else {
-                alert("これ以上戻せません");
             }
         }
 
@@ -173,52 +164,35 @@
         }
 
         function sync() {
-            localStorage.setItem('v5_wins', JSON.stringify(wins));
-            localStorage.setItem('v5_losses', JSON.stringify(losses));
-            localStorage.setItem('v5_vis', JSON.stringify(visibilities));
-            // 透過率も保存
-            localStorage.setItem('v5_opacity', bgOpacity.toString());
-            
-            // 全データを送信
+            localStorage.setItem('v6_wins', JSON.stringify(wins));
+            localStorage.setItem('v6_losses', JSON.stringify(losses));
+            localStorage.setItem('v6_vis', JSON.stringify(visibilities));
+            localStorage.setItem('v6_opacity', bgOpacity.toString());
             bc.postMessage({ wins, losses, visibilities, bgOpacity });
             refreshUI();
         }
 
         function refreshUI() {
-            // 表示画面側の更新
             if (document.getElementById('display-ui').style.display === 'block') {
                 counterNames.forEach((_, i) => {
                     const row = document.getElementById(`row-${i}`);
                     if (row) {
-                        // 表示・非表示
                         if (visibilities[i]) row.classList.remove('hidden');
                         else row.classList.add('hidden');
-                        
-                        // 値の更新
                         document.getElementById(`w-${i}`).textContent = wins[i];
                         document.getElementById(`l-${i}`).textContent = losses[i];
-
-                        // 【重要】背景色の更新（rgbaで透過率を指定）
                         row.style.backgroundColor = `rgba(0, 0, 0, ${bgOpacity})`;
                     }
                 });
             }
-            
-            // ドック側のスライダー位置も同期（他で変更された場合用）
-            const slider = document.getElementById('opacity-slider');
-            if (slider) {
-                slider.value = bgOpacity;
-            }
-
             const status = document.getElementById('status');
-            if (status) status.textContent = "Last Update: " + new Date().toLocaleTimeString();
+            if (status) status.textContent = "Updated: " + new Date().toLocaleTimeString();
         }
 
         bc.onmessage = (e) => {
             wins = e.data.wins;
             losses = e.data.losses;
             visibilities = e.data.visibilities;
-            // 受け取った透過率を反映
             bgOpacity = e.data.bgOpacity;
             refreshUI();
         };
