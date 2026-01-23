@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OBS Triple Counter Pro - Refined</title>
+    <title>OBS Triple Counter Ultimate</title>
     <style>
         :root {
             --win-color: #ff4757;
@@ -11,18 +11,25 @@
             --bg-dark: #2b2b2b;
             --panel-bg: #3d3d3d;
         }
+        /* 全体設定 */
         body { margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; color: white; overflow: hidden; }
 
-        /* --- 操作画面（ドック）スタイル --- */
-        #dock-ui { background: var(--bg-dark); padding: 10px; display: none; height: 100vh; overflow-y: auto; display: flex; flex-direction: column; }
-        
+        /* --- 操作画面（ドック） --- */
+        #dock-ui { 
+            background: var(--bg-dark); 
+            padding: 10px; 
+            display: none; 
+            height: 100vh; 
+            box-sizing: border-box;
+            flex-direction: column; 
+        }
         .counter-panel { background: var(--panel-bg); border-radius: 8px; padding: 10px; margin-bottom: 10px; border: 1px solid #555; }
         .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-        .panel-title { font-size: 0.85rem; font-weight: bold; color: #ccc; }
+        .panel-title { font-size: 0.9rem; font-weight: bold; color: #ccc; }
         .toggle-label { font-size: 0.75rem; color: #aaa; display: flex; align-items: center; gap: 4px; cursor: pointer; }
 
         .btn-group { display: flex; gap: 5px; }
-        button { flex: 1; padding: 8px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; color: white; }
+        button { flex: 1; padding: 10px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; color: white; }
         .win-btn { background: var(--win-color); }
         .loss-btn { background: var(--loss-color); }
         
@@ -30,43 +37,42 @@
         .undo-btn { background: #6c5ce7; font-size: 0.75rem; flex: 1; }
         .reset-small { background: #555; font-size: 0.7rem; flex: 2; opacity: 0.6; }
 
-        /* 設定パネル（一番下に配置） */
-        .setting-panel { background: var(--panel-bg); border-radius: 8px; padding: 10px; margin-top: auto; margin-bottom: 20px; border: 1px solid #555; }
-        .setting-title { font-size: 0.85rem; font-weight: bold; color: #ccc; margin-bottom: 5px; text-transform: capitalize; }
+        /* スライダー（一番下） */
+        .setting-panel { background: var(--panel-bg); border-radius: 8px; padding: 10px; margin-top: auto; margin-bottom: 10px; border: 1px solid #555; }
+        .setting-title { font-size: 0.8rem; font-weight: bold; color: #ccc; margin-bottom: 5px; text-transform: lowercase; }
         input[type=range] { width: 100%; cursor: pointer; }
 
-        /* --- 表示画面（ソース）スタイル --- */
+        /* --- 表示画面（ソース） --- */
         #display-ui { background: transparent; display: none; padding: 10px; }
         .display-row { 
             display: flex; 
-            width: fit-content; /* 背景を文字の範囲に合わせる */
+            width: fit-content; /* 背景を文字範囲に合わせる */
             align-items: center; 
             gap: 0; 
             font-size: 32px; 
             font-weight: 900; 
             text-shadow: 2px 2px 4px rgba(0,0,0,0.8); 
             margin-bottom: 8px;
-            padding: 4px 12px; 
+            padding: 4px 15px; 
             border-radius: 6px; 
             transition: background-color 0.2s ease;
+            font-variant-numeric: tabular-nums; /* 数字の幅を一定にする */
         }
         .hidden { display: none !important; }
-        .label { width: 40px; text-align: center; color: #eee; margin-right: 10px; } /* 文字を明るく修正 */
-        .w-num { width: 60px; text-align: center; color: var(--win-color); }
-        .slash { width: 30px; text-align: center; opacity: 0.5; }
-        .l-num { width: 60px; text-align: center; color: var(--loss-color); }
+        .label { width: 45px; text-align: center; color: #ffffff; margin-right: 15px; } /* 文字を明るく、間隔を調整 */
+        .w-num { width: 65px; text-align: center; color: var(--win-color); }
+        .slash { width: 30px; text-align: center; opacity: 0.5; color: #888; }
+        .l-num { width: 65px; text-align: center; color: var(--loss-color); }
     </style>
 </head>
 <body>
 
     <div id="dock-ui">
         <div id="controls-container"></div>
-        
-        <div id="status" style="font-size: 0.7rem; color: #777; text-align: center; margin-top: 10px; margin-bottom: 10px;">Ready</div>
-
+        <div id="status" style="font-size: 0.7rem; color: #666; text-align: center; margin: 10px 0;">Wait...</div>
         <div class="setting-panel">
             <div class="setting-title">opacity</div>
-            <input type="range" id="opacity-slider" min="0" max="1" step="0.05" oninput="updateOpacity(this.value)">
+            <input type="range" id="opacity-slider" min="0" max="1" step="0.05" value="0.5">
         </div>
     </div>
 
@@ -75,15 +81,23 @@
     </div>
 
     <script>
-        const bc = new BroadcastChannel('obs_triple_counter_v6');
+        const bc = new BroadcastChannel('obs_triple_v7');
         const urlParams = new URLSearchParams(window.location.search);
         const mode = urlParams.get('mode');
         const counterNames = ["T", "D", "S"];
 
-        let wins = JSON.parse(localStorage.getItem('v6_wins') || "[0, 0, 0]");
-        let losses = JSON.parse(localStorage.getItem('v6_losses') || "[0, 0, 0]");
-        let visibilities = JSON.parse(localStorage.getItem('v6_vis') || "[true, true, true]");
-        let bgOpacity = parseFloat(localStorage.getItem('v6_opacity') || "0.5");
+        // データの安全な読み込み関数
+        function loadData(key, defaultValue) {
+            try {
+                const data = JSON.parse(localStorage.getItem(key));
+                return (Array.isArray(data) && data.length === 3) ? data : defaultValue;
+            } catch (e) { return defaultValue; }
+        }
+
+        let wins = loadData('v7_wins', [0, 0, 0]);
+        let losses = loadData('v7_losses', [0, 0, 0]);
+        let visibilities = loadData('v7_vis', [true, true, true]);
+        let bgOpacity = parseFloat(localStorage.getItem('v7_opacity') || "0.5");
         let history = [];
 
         window.onload = () => {
@@ -100,8 +114,12 @@
                         </div>`;
                 });
             } else {
-                document.getElementById('dock-ui').style.display = 'flex';
-                document.getElementById('opacity-slider').value = bgOpacity;
+                const dock = document.getElementById('dock-ui');
+                dock.style.display = 'flex';
+                
+                const slider = document.getElementById('opacity-slider');
+                slider.value = bgOpacity;
+                slider.oninput = (e) => { bgOpacity = parseFloat(e.target.value); sync(); };
 
                 const container = document.getElementById('controls-container');
                 counterNames.forEach((name, i) => {
@@ -119,7 +137,7 @@
                                 <button class="loss-btn" onclick="updateVal(${i}, 0, 1)">LOSS</button>
                             </div>
                             <div class="sub-btn-group">
-                                <button class="undo-btn" onclick="undo(${i})">back</button>
+                                <button class="undo-btn" onclick="undo()">back</button>
                                 <button class="reset-small" onclick="resetOne(${i})">RESET</button>
                             </div>
                         </div>`;
@@ -128,11 +146,6 @@
             refreshUI();
         };
 
-        function updateOpacity(value) {
-            bgOpacity = parseFloat(value);
-            sync();
-        }
-
         function updateVis(index, isVisible) {
             visibilities[index] = isVisible;
             sync();
@@ -140,51 +153,47 @@
 
         function updateVal(index, w, l) {
             history.push({ wins: [...wins], losses: [...losses] });
-            if (history.length > 10) history.shift();
+            if (history.length > 20) history.shift();
             wins[index] += w;
             losses[index] += l;
             sync();
         }
 
-        function undo(index) {
+        function undo() {
             if (history.length > 0) {
-                const lastState = history.pop();
-                wins = lastState.wins;
-                losses = lastState.losses;
+                const last = history.pop();
+                wins = last.wins;
+                losses = last.losses;
                 sync();
             }
         }
 
         function resetOne(index) {
-            if (confirm(`${counterNames[index]} をリセットしますか？`)) {
-                wins[index] = 0;
-                losses[index] = 0;
+            if (confirm(`${counterNames[index]} reset?`)) {
+                wins[index] = 0; losses[index] = 0;
                 sync();
             }
         }
 
         function sync() {
-            localStorage.setItem('v6_wins', JSON.stringify(wins));
-            localStorage.setItem('v6_losses', JSON.stringify(losses));
-            localStorage.setItem('v6_vis', JSON.stringify(visibilities));
-            localStorage.setItem('v6_opacity', bgOpacity.toString());
+            localStorage.setItem('v7_wins', JSON.stringify(wins));
+            localStorage.setItem('v7_losses', JSON.stringify(losses));
+            localStorage.setItem('v7_vis', JSON.stringify(visibilities));
+            localStorage.setItem('v7_opacity', bgOpacity);
             bc.postMessage({ wins, losses, visibilities, bgOpacity });
             refreshUI();
         }
 
         function refreshUI() {
-            if (document.getElementById('display-ui').style.display === 'block') {
-                counterNames.forEach((_, i) => {
-                    const row = document.getElementById(`row-${i}`);
-                    if (row) {
-                        if (visibilities[i]) row.classList.remove('hidden');
-                        else row.classList.add('hidden');
-                        document.getElementById(`w-${i}`).textContent = wins[i];
-                        document.getElementById(`l-${i}`).textContent = losses[i];
-                        row.style.backgroundColor = `rgba(0, 0, 0, ${bgOpacity})`;
-                    }
-                });
-            }
+            counterNames.forEach((_, i) => {
+                const row = document.getElementById(`row-${i}`);
+                if (row) {
+                    row.className = visibilities[i] ? 'display-row' : 'display-row hidden';
+                    document.getElementById(`w-${i}`).textContent = wins[i];
+                    document.getElementById(`l-${i}`).textContent = losses[i];
+                    row.style.backgroundColor = `rgba(0, 0, 0, ${bgOpacity})`;
+                }
+            });
             const status = document.getElementById('status');
             if (status) status.textContent = "Updated: " + new Date().toLocaleTimeString();
         }
