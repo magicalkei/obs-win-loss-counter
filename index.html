@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OBS Triple Counter - Final Stable</title>
+    <title>OBS Triple Counter - Scroll Fix</title>
     <style>
         :root {
             --win-color: #ff4757;
@@ -11,16 +11,24 @@
             --bg-dark: #2b2b2b;
             --panel-bg: #3d3d3d;
         }
-        body { margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; color: white; overflow: hidden; }
+        
+        /* 【修正1】overflow: hidden を削除し、auto（自動）に変更 */
+        body { 
+            margin: 0; 
+            padding: 0; 
+            font-family: 'Segoe UI', sans-serif; 
+            color: white; 
+            background: transparent;
+            overflow-y: auto; /* 必要に応じて縦スクロールバーを出す */
+        }
 
         /* --- 操作画面（ドック）スタイル --- */
         #dock-ui { 
             background: var(--bg-dark); 
             padding: 10px; 
             display: none; 
-            height: 100vh; 
             box-sizing: border-box; 
-            display: flex; 
+            min-height: 100vh; /* 最低でも画面の高さを持つ */
             flex-direction: column; 
         }
         
@@ -38,18 +46,24 @@
         .undo-btn { background: #6c5ce7; font-size: 0.75rem; flex: 1; }
         .reset-small { background: #555; font-size: 0.7rem; flex: 2; opacity: 0.6; }
 
-        /* スライダーを一番下に配置 */
-        .setting-panel { background: var(--panel-bg); border-radius: 8px; padding: 10px; margin-top: auto; margin-bottom: 20px; border: 1px solid #555; }
+        /* 【修正2】margin-top: auto を削除し、すぐ下に配置されるように変更 */
+        .setting-panel { 
+            background: var(--panel-bg); 
+            border-radius: 8px; 
+            padding: 10px; 
+            margin-bottom: 10px; /* 下に少し余白 */
+            border: 1px solid #555; 
+        }
         .setting-title { font-size: 0.85rem; font-weight: bold; color: #ccc; margin-bottom: 5px; text-transform: lowercase; }
         input[type=range] { width: 100%; cursor: pointer; }
 
         /* --- 表示画面（ソース）スタイル --- */
         #display-ui { background: transparent; display: none; padding: 10px; }
         .display-row { 
-            display: grid; /* グリッドで列を固定 */
+            display: grid; 
             grid-template-columns: 45px 65px 30px 65px; 
             align-items: center; 
-            width: fit-content; /* 背景を文字範囲に合わせる */
+            width: fit-content; 
             font-size: 32px; 
             font-weight: 900; 
             text-shadow: 2px 2px 4px rgba(0,0,0,0.8); 
@@ -60,7 +74,7 @@
             font-variant-numeric: tabular-nums;
         }
         .hidden { display: none !important; }
-        .label { text-align: center; color: #ffffff; margin-right: 10px; } /* 文字を明るく(白) */
+        .label { text-align: center; color: #ffffff; margin-right: 10px; }
         .w-num { text-align: center; color: var(--win-color); }
         .slash { text-align: center; opacity: 0.5; }
         .l-num { text-align: center; color: var(--loss-color); }
@@ -70,12 +84,13 @@
 
     <div id="dock-ui">
         <div id="controls-container"></div>
-        <div id="status" style="font-size: 0.7rem; color: #777; text-align: center; margin-top: 10px; margin-bottom: 10px;">Ready</div>
         
         <div class="setting-panel">
             <div class="setting-title">opacity</div>
             <input type="range" id="opacity-slider" min="0" max="1" step="0.05" oninput="updateOpacity(this.value)">
         </div>
+
+        <div id="status" style="font-size: 0.7rem; color: #777; text-align: center; margin-bottom: 10px;">Ready</div>
     </div>
 
     <div id="display-ui">
@@ -88,7 +103,6 @@
         const mode = urlParams.get('mode');
         const counterNames = ["T", "D", "S"];
 
-        // データの読み込み
         let wins = JSON.parse(localStorage.getItem('v9_wins') || "[0, 0, 0]");
         let losses = JSON.parse(localStorage.getItem('v9_losses') || "[0, 0, 0]");
         let visibilities = JSON.parse(localStorage.getItem('v9_vis') || "[true, true, true]");
@@ -100,7 +114,11 @@
             if (mode === 'display') {
                 const container = document.getElementById('displays-container');
                 document.getElementById('display-ui').style.display = 'block';
-                document.getElementById('dock-ui').style.display = 'none'; // ディスプレイ時はドックを隠す
+                document.getElementById('dock-ui').style.display = 'none';
+                
+                // overflow設定をリセット（表示画面ではスクロールバーを出さないため）
+                document.body.style.overflow = 'hidden';
+
                 counterNames.forEach((name, i) => {
                     container.innerHTML += `
                         <div class="display-row" id="row-${i}">
@@ -111,7 +129,6 @@
                         </div>`;
                 });
             } else {
-                // ドック側の初期化
                 const dockUi = document.getElementById('dock-ui');
                 dockUi.style.display = 'flex';
                 document.getElementById('display-ui').style.display = 'none';
