@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OBS Triple Counter - Final Fixed</title>
+    <title>OBS Triple Counter - Final Stable</title>
     <style>
         :root {
             --win-color: #ff4757;
@@ -19,9 +19,11 @@
             padding: 10px; 
             display: none; 
             height: 100vh; 
-            box-sizing: border-box;
+            box-sizing: border-box; 
+            display: flex; 
             flex-direction: column; 
         }
+        
         .counter-panel { background: var(--panel-bg); border-radius: 8px; padding: 10px; margin-bottom: 10px; border: 1px solid #555; }
         .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
         .panel-title { font-size: 0.85rem; font-weight: bold; color: #ccc; }
@@ -36,31 +38,31 @@
         .undo-btn { background: #6c5ce7; font-size: 0.75rem; flex: 1; }
         .reset-small { background: #555; font-size: 0.7rem; flex: 2; opacity: 0.6; }
 
-        /* スライダーを常に一番下に配置 */
-        .setting-panel { background: var(--panel-bg); border-radius: 8px; padding: 10px; margin-top: auto; margin-bottom: 15px; border: 1px solid #555; }
-        .setting-title { font-size: 0.85rem; font-weight: bold; color: #ccc; margin-bottom: 5px; }
+        /* スライダーを一番下に配置 */
+        .setting-panel { background: var(--panel-bg); border-radius: 8px; padding: 10px; margin-top: auto; margin-bottom: 20px; border: 1px solid #555; }
+        .setting-title { font-size: 0.85rem; font-weight: bold; color: #ccc; margin-bottom: 5px; text-transform: lowercase; }
         input[type=range] { width: 100%; cursor: pointer; }
 
         /* --- 表示画面（ソース）スタイル --- */
         #display-ui { background: transparent; display: none; padding: 10px; }
         .display-row { 
-            display: grid; /* Gridレイアウトで列を固定 */
-            grid-template-columns: 40px 60px 30px 60px; /* 各列の幅を固定 */
+            display: grid; /* グリッドで列を固定 */
+            grid-template-columns: 45px 65px 30px 65px; 
             align-items: center; 
-            width: fit-content; 
+            width: fit-content; /* 背景を文字範囲に合わせる */
+            font-size: 32px; 
+            font-weight: 900; 
             text-shadow: 2px 2px 4px rgba(0,0,0,0.8); 
-            margin-bottom: 8px;
+            margin-bottom: 10px;
             padding: 4px 12px; 
-            border-radius: 6px; 
+            border-radius: 8px; 
             transition: background-color 0.2s ease;
-            font-weight: 900;
-            font-size: 32px;
-            font-variant-numeric: tabular-nums; /* 数字の幅を一定にする */
+            font-variant-numeric: tabular-nums;
         }
         .hidden { display: none !important; }
-        .label { text-align: center; color: #ffffff; margin-right: 10px; } /* 明るい白に修正 */
+        .label { text-align: center; color: #ffffff; margin-right: 10px; } /* 文字を明るく(白) */
         .w-num { text-align: center; color: var(--win-color); }
-        .slash { text-align: center; opacity: 0.5; color: #fff; }
+        .slash { text-align: center; opacity: 0.5; }
         .l-num { text-align: center; color: var(--loss-color); }
     </style>
 </head>
@@ -68,10 +70,11 @@
 
     <div id="dock-ui">
         <div id="controls-container"></div>
-        <div id="status" style="font-size: 0.7rem; color: #666; text-align: center; margin: 10px 0;">Syncing...</div>
+        <div id="status" style="font-size: 0.7rem; color: #777; text-align: center; margin-top: 10px; margin-bottom: 10px;">Ready</div>
+        
         <div class="setting-panel">
             <div class="setting-title">opacity</div>
-            <input type="range" id="opacity-slider" min="0" max="1" step="0.05">
+            <input type="range" id="opacity-slider" min="0" max="1" step="0.05" oninput="updateOpacity(this.value)">
         </div>
     </div>
 
@@ -80,23 +83,24 @@
     </div>
 
     <script>
-        // データ干渉を防ぐため新しいバージョンキーを使用
-        const bc = new BroadcastChannel('obs_triple_v8');
+        const bc = new BroadcastChannel('obs_triple_v9_stable');
         const urlParams = new URLSearchParams(window.location.search);
         const mode = urlParams.get('mode');
         const counterNames = ["T", "D", "S"];
 
-        // データの安全な読み込み
-        let wins = JSON.parse(localStorage.getItem('v8_wins') || "[0, 0, 0]");
-        let losses = JSON.parse(localStorage.getItem('v8_losses') || "[0, 0, 0]");
-        let visibilities = JSON.parse(localStorage.getItem('v8_vis') || "[true, true, true]");
-        let bgOpacity = parseFloat(localStorage.getItem('v8_opacity') || "0.5");
+        // データの読み込み
+        let wins = JSON.parse(localStorage.getItem('v9_wins') || "[0, 0, 0]");
+        let losses = JSON.parse(localStorage.getItem('v9_losses') || "[0, 0, 0]");
+        let visibilities = JSON.parse(localStorage.getItem('v9_vis') || "[true, true, true]");
+        let bgOpacity = parseFloat(localStorage.getItem('v9_opacity') || "0.5");
+        
         let history = [];
 
-        document.addEventListener('DOMContentLoaded', () => {
+        window.onload = () => {
             if (mode === 'display') {
                 const container = document.getElementById('displays-container');
                 document.getElementById('display-ui').style.display = 'block';
+                document.getElementById('dock-ui').style.display = 'none'; // ディスプレイ時はドックを隠す
                 counterNames.forEach((name, i) => {
                     container.innerHTML += `
                         <div class="display-row" id="row-${i}">
@@ -107,22 +111,22 @@
                         </div>`;
                 });
             } else {
-                const dock = document.getElementById('dock-ui');
-                dock.style.display = 'flex';
+                // ドック側の初期化
+                const dockUi = document.getElementById('dock-ui');
+                dockUi.style.display = 'flex';
+                document.getElementById('display-ui').style.display = 'none';
                 
-                const slider = document.getElementById('opacity-slider');
-                slider.value = bgOpacity;
-                slider.oninput = (e) => { bgOpacity = parseFloat(e.target.value); sync(); };
+                document.getElementById('opacity-slider').value = bgOpacity;
 
                 const container = document.getElementById('controls-container');
                 counterNames.forEach((name, i) => {
-                    const checked = visibilities[i] ? 'checked' : '';
+                    const isChecked = visibilities[i] ? 'checked' : '';
                     container.innerHTML += `
                         <div class="counter-panel">
                             <div class="panel-header">
                                 <div class="panel-title">${name}</div>
                                 <label class="toggle-label">
-                                    <input type="checkbox" ${checked} onchange="updateVis(${i}, this.checked)"> show
+                                    <input type="checkbox" ${isChecked} onchange="updateVis(${i}, this.checked)"> show
                                 </label>
                             </div>
                             <div class="btn-group">
@@ -137,7 +141,12 @@
                 });
             }
             refreshUI();
-        });
+        };
+
+        function updateOpacity(value) {
+            bgOpacity = parseFloat(value);
+            sync();
+        }
 
         function updateVis(index, isVisible) {
             visibilities[index] = isVisible;
@@ -154,26 +163,26 @@
 
         function undo() {
             if (history.length > 0) {
-                const last = history.pop();
-                wins = last.wins;
-                losses = last.losses;
+                const lastState = history.pop();
+                wins = lastState.wins;
+                losses = lastState.losses;
                 sync();
             }
         }
 
         function resetOne(index) {
-            // 文字化け防止のため英語で記述
-            if (confirm("Reset " + counterNames[index] + "?")) {
-                wins[index] = 0; losses[index] = 0;
+            if (confirm(`${counterNames[index]} をリセットしますか？`)) {
+                wins[index] = 0;
+                losses[index] = 0;
                 sync();
             }
         }
 
         function sync() {
-            localStorage.setItem('v8_wins', JSON.stringify(wins));
-            localStorage.setItem('v8_losses', JSON.stringify(losses));
-            localStorage.setItem('v8_vis', JSON.stringify(visibilities));
-            localStorage.setItem('v8_opacity', bgOpacity.toString());
+            localStorage.setItem('v9_wins', JSON.stringify(wins));
+            localStorage.setItem('v9_losses', JSON.stringify(losses));
+            localStorage.setItem('v9_vis', JSON.stringify(visibilities));
+            localStorage.setItem('v9_opacity', bgOpacity.toString());
             bc.postMessage({ wins, losses, visibilities, bgOpacity });
             refreshUI();
         }
@@ -182,12 +191,18 @@
             counterNames.forEach((_, i) => {
                 const row = document.getElementById(`row-${i}`);
                 if (row) {
-                    row.className = visibilities[i] ? 'display-row' : 'display-row hidden';
+                    if (visibilities[i]) row.classList.remove('hidden');
+                    else row.classList.add('hidden');
+                    
                     document.getElementById(`w-${i}`).textContent = wins[i];
                     document.getElementById(`l-${i}`).textContent = losses[i];
                     row.style.backgroundColor = `rgba(0, 0, 0, ${bgOpacity})`;
                 }
             });
+            
+            const slider = document.getElementById('opacity-slider');
+            if (slider) slider.value = bgOpacity;
+
             const status = document.getElementById('status');
             if (status) status.textContent = "Updated: " + new Date().toLocaleTimeString();
         }
