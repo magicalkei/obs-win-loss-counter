@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OBS Triple Counter - UI Polish</title>
+    <title>OBS Triple Counter - Ver.1.1</title>
     <style>
         :root {
             --win-color: #ff4757;
@@ -15,7 +15,8 @@
         body { 
             margin: 0; 
             padding: 0; 
-            font-family: 'Segoe UI', sans-serif; 
+            /* OWっぽいフォント設定 */
+            font-family: 'Impact', 'Haettenschweiler', 'Arial Narrow Bold', sans-serif; 
             color: white; 
             background: transparent;
             overflow-y: auto;
@@ -35,12 +36,12 @@
             box-sizing: border-box; 
             min-height: 100vh;
             flex-direction: column; 
+            font-family: 'Segoe UI', sans-serif; /* ドックは読みやすいフォントに戻す */
         }
         
         .counter-panel { background: var(--panel-bg); border-radius: 8px; padding: 10px; margin-bottom: 10px; border: 1px solid #555; }
         .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
         
-        /* タイトル横の数字を見やすく調整 */
         .panel-title { font-size: 0.9rem; font-weight: bold; color: #ccc; }
         .title-score { font-weight: normal; margin-left: 8px; color: #fff; background: #555; padding: 1px 6px; border-radius: 4px; font-size: 0.8rem; }
         
@@ -53,12 +54,7 @@
         .loss-btn { background: var(--loss-color); }
         
         .sub-btn-group { display: flex; gap: 5px; margin-top: 8px; }
-        /* back/resetボタンの高さと幅を調整 */
-        .sub-btn { 
-            padding: 4px 0; /* 高さを低く */
-            font-size: 0.75rem; 
-            flex: 1; /* 幅を均等に */
-        }
+        .sub-btn { padding: 4px 0; font-size: 0.75rem; flex: 1; }
         .undo-btn { background: #6c5ce7; }
         .reset-small { background: #555; opacity: 0.8; }
 
@@ -74,27 +70,43 @@
 
         /* --- 表示画面（ソース）スタイル --- */
         #display-ui { background: transparent; display: none; padding: 10px; }
+        
         .display-row { 
             display: grid; 
-            /* フォントサイズ拡大に合わせて列幅を調整 */
-            grid-template-columns: 50px 75px 30px 75px; 
+            /* 【修正】余白削減のため列幅を縮小 */
+            grid-template-columns: 40px 55px 20px 55px; 
             align-items: center; 
             width: fit-content; 
-            font-size: 38px; /* フォントサイズアップ */
-            font-weight: 900; 
+            font-size: 38px; 
+            font-weight: 400; /* Impactなどは元々太いのでnormalに */
+            /* OW風の斜体 */
+            font-style: italic;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.8); 
-            margin-bottom: 12px;
-            padding: 6px 16px; 
-            border-radius: 8px; 
+            margin-bottom: 8px; /* 行間も少し詰める */
+            /* 【修正】パディングを大幅に削減 */
+            padding: 2px 8px; 
+            border-radius: 4px; /* 角丸も少し鋭角に */
             transition: background-color 0.2s ease;
             font-variant-numeric: tabular-nums;
+            /* 文字間を少し詰める */
+            letter-spacing: 1px;
         }
         .hidden { display: none !important; }
-        .label { text-align: center; color: #ffffff; margin-right: 10px; }
+        .label { text-align: center; color: #ffffff; margin-right: 5px; } /* 右余白削減 */
         .w-num { text-align: center; color: var(--win-color); }
-        /* スラッシュの色をラベルと同じ白に変更 */
-        .slash { text-align: center; color: #ffffff; opacity: 1; }
+        .slash { text-align: center; color: #ffffff; opacity: 0.8; transform: skew(-10deg); /* スラッシュも少し傾ける */ }
         .l-num { text-align: center; color: var(--loss-color); }
+
+        /* --- 軽量アニメーション（ポップ） --- */
+        @keyframes pop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.3); color: #fff; } /* 一瞬大きくなって白くなる */
+            100% { transform: scale(1); }
+        }
+        .pop-anim {
+            animation: pop 0.2s ease-out;
+        }
+
     </style>
 </head>
 <body>
@@ -107,7 +119,7 @@
             <input type="range" id="opacity-slider" min="0" max="1" step="0.05" oninput="updateOpacity(this.value)">
         </div>
 
-        <div id="status" style="font-size: 0.7rem; color: #777; text-align: center; margin-bottom: 10px;">Ready</div>
+        <div id="status" style="font-size: 0.7rem; color: #777; text-align: center; margin-bottom: 10px;">Ready (Ver.1.1)</div>
     </div>
 
     <div id="display-ui">
@@ -115,15 +127,15 @@
     </div>
 
     <script>
-        const bc = new BroadcastChannel('obs_triple_v13_ui');
+        const bc = new BroadcastChannel('obs_triple_v1_1');
         const urlParams = new URLSearchParams(window.location.search);
         const mode = urlParams.get('mode');
         const counterNames = ["T", "D", "S"];
 
-        let wins = JSON.parse(localStorage.getItem('v13_wins') || "[0, 0, 0]");
-        let losses = JSON.parse(localStorage.getItem('v13_losses') || "[0, 0, 0]");
-        let visibilities = JSON.parse(localStorage.getItem('v13_vis') || "[true, true, true]");
-        let bgOpacity = parseFloat(localStorage.getItem('v13_opacity') || "0.5");
+        let wins = JSON.parse(localStorage.getItem('v1_1_wins') || "[0, 0, 0]");
+        let losses = JSON.parse(localStorage.getItem('v1_1_losses') || "[0, 0, 0]");
+        let visibilities = JSON.parse(localStorage.getItem('v1_1_vis') || "[true, true, true]");
+        let bgOpacity = parseFloat(localStorage.getItem('v1_1_opacity') || "0.5");
         
         let history = [];
 
@@ -180,12 +192,12 @@
 
         function updateOpacity(value) {
             bgOpacity = parseFloat(value);
-            sync();
+            sync(null, null); // アニメーションなし
         }
 
         function updateVis(index, isVisible) {
             visibilities[index] = isVisible;
-            sync();
+            sync(null, null);
         }
 
         function updateVal(index, w, l) {
@@ -193,7 +205,10 @@
             if (history.length > 20) history.shift();
             wins[index] += w;
             losses[index] += l;
-            sync();
+            
+            // アニメーション対象を指定して同期
+            const type = w > 0 ? 'win' : 'loss';
+            sync(index, type);
         }
 
         function undo() {
@@ -201,7 +216,7 @@
                 const lastState = history.pop();
                 wins = lastState.wins;
                 losses = lastState.losses;
-                sync();
+                sync(null, null);
             }
         }
 
@@ -209,20 +224,21 @@
             if (confirm(`${counterNames[index]} reset?`)) {
                 wins[index] = 0;
                 losses[index] = 0;
-                sync();
+                sync(null, null);
             }
         }
 
-        function sync() {
-            localStorage.setItem('v13_wins', JSON.stringify(wins));
-            localStorage.setItem('v13_losses', JSON.stringify(losses));
-            localStorage.setItem('v13_vis', JSON.stringify(visibilities));
-            localStorage.setItem('v13_opacity', bgOpacity.toString());
-            bc.postMessage({ wins, losses, visibilities, bgOpacity });
-            refreshUI();
+        function sync(animIndex, animType) {
+            localStorage.setItem('v1_1_wins', JSON.stringify(wins));
+            localStorage.setItem('v1_1_losses', JSON.stringify(losses));
+            localStorage.setItem('v1_1_vis', JSON.stringify(visibilities));
+            localStorage.setItem('v1_1_opacity', bgOpacity.toString());
+            // アニメーション情報も一緒に送る
+            bc.postMessage({ wins, losses, visibilities, bgOpacity, animIndex, animType });
+            refreshUI(animIndex, animType);
         }
 
-        function refreshUI() {
+        function refreshUI(animIndex = null, animType = null) {
             counterNames.forEach((_, i) => {
                 // ディスプレイ側の更新
                 const row = document.getElementById(`row-${i}`);
@@ -230,9 +246,21 @@
                     if (visibilities[i]) row.classList.remove('hidden');
                     else row.classList.add('hidden');
                     
-                    document.getElementById(`w-${i}`).textContent = wins[i];
-                    document.getElementById(`l-${i}`).textContent = losses[i];
+                    const wEl = document.getElementById(`w-${i}`);
+                    const lEl = document.getElementById(`l-${i}`);
+                    
+                    wEl.textContent = wins[i];
+                    lEl.textContent = losses[i];
                     row.style.backgroundColor = `rgba(0, 0, 0, ${bgOpacity})`;
+
+                    // アニメーション発火処理
+                    if (i === animIndex) {
+                        const target = animType === 'win' ? wEl : lEl;
+                        // クラスを一旦外して付け直すことでアニメーションを再生
+                        target.classList.remove('pop-anim');
+                        void target.offsetWidth; // リフロー強制
+                        target.classList.add('pop-anim');
+                    }
                 }
 
                 // ドック側のタイトルスコア更新
@@ -244,9 +272,6 @@
             
             const slider = document.getElementById('opacity-slider');
             if (slider) slider.value = bgOpacity;
-
-            const status = document.getElementById('status');
-            if (status) status.textContent = "Updated: " + new Date().toLocaleTimeString();
         }
 
         bc.onmessage = (e) => {
@@ -254,7 +279,8 @@
             losses = e.data.losses;
             visibilities = e.data.visibilities;
             bgOpacity = e.data.bgOpacity;
-            refreshUI();
+            // 受信側でもアニメーションを再生
+            refreshUI(e.data.animIndex, e.data.animType);
         };
     </script>
 </body>
