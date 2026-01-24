@@ -3,51 +3,103 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OBS Triple Counter - Ver.1.2</title>
+    <title>OBS Triple Counter Tool</title>
     <style>
+        /* --- 共通設定 --- */
         :root {
             --win-color: #ff4757;
             --loss-color: #1e90ff;
             --bg-dark: #2b2b2b;
             --panel-bg: #3d3d3d;
         }
-        
-        body { 
-            margin: 0; 
-            padding: 0; 
-            font-family: 'Impact', 'Haettenschweiler', 'Arial Narrow Bold', sans-serif; 
-            color: white; 
-            background: transparent;
-            overflow-y: auto;
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f0f0;
+            color: #333;
         }
 
-        /* --- スクロールバー --- */
+        /* --- ランチャー画面（パラメータがない時に表示） --- */
+        #launcher-ui {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            text-align: center;
+        }
+        #launcher-ui h1 { margin-bottom: 20px; }
+        .launch-btn {
+            padding: 15px 30px;
+            margin: 10px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            border: none;
+            border-radius: 8px;
+            background: #333;
+            color: white;
+            text-decoration: none;
+            transition: background 0.2s;
+        }
+        .launch-btn:hover { background: #555; }
+
+        /* --- ツールモード時のスタイル --- */
+        html.tool-mode, 
+        body.tool-mode {
+            background: transparent !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+            height: 100% !important;
+            width: 100% !important;
+        }
+        
+        /* ツールモード時はランチャーを隠す */
+        body.tool-mode #launcher-ui { display: none !important; }
+
+        #tool-wrapper {
+            display: none; /* JSで表示制御 */
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 9999;
+            font-family: 'Impact', 'Haettenschweiler', 'Arial Narrow Bold', sans-serif;
+            color: white;
+            line-height: 1;
+        }
+        
+        #tool-wrapper * { box-sizing: border-box; }
+
+        /* --- ドック（操作パネル）のスタイル --- */
+        #dock-ui { 
+            background: var(--bg-dark); 
+            padding: 10px; 
+            display: none; 
+            height: 100%; 
+            width: 100%;
+            flex-direction: column; 
+            font-family: 'Segoe UI', sans-serif;
+            overflow-y: auto; 
+        }
+        
+        /* スクロールバー装飾 */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: var(--bg-dark); }
         ::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #777; }
 
-        /* --- 操作画面（ドック） --- */
-        #dock-ui { 
-            background: var(--bg-dark); 
-            padding: 10px; 
-            display: none; 
-            box-sizing: border-box; 
-            min-height: 100vh;
-            flex-direction: column; 
-            font-family: 'Segoe UI', sans-serif;
-        }
-        
         .counter-panel { background: var(--panel-bg); border-radius: 8px; padding: 10px; margin-bottom: 10px; border: 1px solid #555; }
         .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-        
-        .panel-title { font-size: 0.9rem; font-weight: bold; color: #ccc; }
+        .panel-title { font-size: 0.9rem; font-weight: bold; color: #ccc; margin: 0; }
         .title-score { font-weight: normal; margin-left: 8px; color: #fff; background: #555; padding: 1px 6px; border-radius: 4px; font-size: 0.8rem; }
-        
-        .toggle-label { font-size: 0.75rem; color: #aaa; display: flex; align-items: center; gap: 4px; cursor: pointer; }
+        .toggle-label { font-size: 0.75rem; color: #aaa; display: flex; align-items: center; gap: 4px; cursor: pointer; margin: 0; }
 
         .btn-group { display: flex; gap: 5px; }
-        button { flex: 1; padding: 8px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; color: white; transition: opacity 0.2s; }
+        button { flex: 1; padding: 8px; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; color: white; transition: opacity 0.2s; margin: 0; }
         button:active { opacity: 0.7; }
         .win-btn { background: var(--win-color); }
         .loss-btn { background: var(--loss-color); }
@@ -57,88 +109,133 @@
         .undo-btn { background: #6c5ce7; }
         .reset-small { background: #555; opacity: 0.8; }
 
-        .setting-panel { 
-            background: var(--panel-bg); 
-            border-radius: 8px; 
-            padding: 10px; 
-            margin-bottom: 10px; 
-            border: 1px solid #555; 
-        }
+        .setting-panel { background: var(--panel-bg); border-radius: 8px; padding: 10px; margin-bottom: 10px; border: 1px solid #555; }
         .setting-title { font-size: 0.85rem; font-weight: bold; color: #ccc; margin-bottom: 5px; text-transform: lowercase; }
-        input[type=range] { width: 100%; cursor: pointer; }
+        input[type=range] { width: 100%; cursor: pointer; margin: 0; }
 
-        /* --- 表示画面（ソース） --- */
-        #display-ui { background: transparent; display: none; padding: 10px; }
+        /* --- ディスプレイ（配信画面）のスタイル --- */
+        #display-ui { 
+            background: transparent; 
+            display: none; 
+            padding: 10px; 
+            width: 100%; 
+            height: 100%; 
+            pointer-events: none; 
+            text-align: left;
+        }
         
         .display-row { 
             display: grid; 
-            grid-template-columns: 40px 55px 20px 55px; 
+            grid-template-columns: 45px 80px 25px 80px; 
+            gap: 0; 
             align-items: center; 
+            justify-content: start;
             width: fit-content; 
             font-size: 38px; 
             font-weight: 400; 
             font-style: italic;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.8); 
-            margin-bottom: 8px;
-            padding: 2px 8px; 
+            margin: 0 0 4px 0;
+            padding: 0; 
             border-radius: 4px; 
             transition: background-color 0.2s ease;
             font-variant-numeric: tabular-nums;
             letter-spacing: 1px;
+            line-height: 1;
         }
-        .hidden { display: none !important; }
-        .label { text-align: center; color: #ffffff; margin-right: 5px; }
-        .w-num { text-align: center; color: var(--win-color); }
-        .slash { text-align: center; color: #ffffff; opacity: 0.8; transform: skew(-10deg); }
-        .l-num { text-align: center; color: var(--loss-color); }
-
-        /* --- アニメーション設定 --- */
         
-        /* WIN: ポップ（拡大＆発光） */
-        @keyframes pop {
-            0% { transform: scale(1); }
+        .label { text-align: center; color: #ffffff; margin: 0; padding: 0; }
+        
+        /* アニメーション揺れ防止設定 */
+        .w-num, .l-num { 
+            text-align: center; margin: 0; padding: 0; 
+            white-space: nowrap;
+            will-change: transform;
+            backface-visibility: hidden;
+        }
+        .w-num { color: var(--win-color); }
+        .l-num { color: var(--loss-color); }
+        
+        .slash { 
+            text-align: center; color: #ffffff; opacity: 0.8; 
+            transform: skew(-10deg); 
+            margin: 0; padding: 0; 
+            will-change: transform;
+            backface-visibility: hidden;
+        }
+        
+        .hidden { display: none !important; }
+
+        /* アニメーション定義 */
+        @keyframes pop { 
+            0% { transform: scale(1); } 
             50% { transform: scale(1.3); color: #fff; } 
-            100% { transform: scale(1); }
+            100% { transform: scale(1); } 
         }
-        .pop-anim {
-            animation: pop 0.2s ease-out;
+        .pop-anim { animation: pop 0.2s ease-out; }
+        
+        @keyframes shake { 
+            0% { transform: translateX(0); } 
+            20% { transform: translateX(-4px); } 
+            40% { transform: translateX(4px); } 
+            60% { transform: translateX(-4px); } 
+            80% { transform: translateX(4px); } 
+            100% { transform: translateX(0); } 
         }
-
-        /* LOSS: シェイク（振動） */
-        @keyframes shake {
-            0% { transform: translateX(0); }
-            20% { transform: translateX(-4px); }
-            40% { transform: translateX(4px); }
-            60% { transform: translateX(-4px); }
-            80% { transform: translateX(4px); }
-            100% { transform: translateX(0); }
+        .shake-anim { animation: shake 0.3s ease-in-out; }
+        
+        /* クレジットリンク用スタイル */
+        .credit-box {
+            text-align: center; margin-top: 10px; margin-bottom: 5px;
+            display: flex; justify-content: center; align-items: center; gap: 8px;
         }
-        .shake-anim {
-            animation: shake 0.3s ease-in-out;
-            /* 色は変えず、形だけ揺らす */
+        .credit-link {
+            color: #aaa; text-decoration: none; font-size: 0.8rem; border-bottom: 1px dotted #777;
         }
-
+        .credit-copy-btn {
+            background: transparent; border: 1px solid #777; color: #aaa; 
+            border-radius: 4px; cursor: pointer; padding: 2px 5px; font-size: 0.7rem; line-height: 1;
+        }
+        .credit-copy-btn:active { background: #555; color: #fff; }
     </style>
 </head>
 <body>
 
-    <div id="dock-ui">
-        <div id="controls-container"></div>
-        
-        <div class="setting-panel">
-            <div class="setting-title">opacity</div>
-            <input type="range" id="opacity-slider" min="0" max="1" step="0.05" oninput="updateOpacity(this.value)">
+    <div id="launcher-ui">
+        <h1>OBS Triple Counter Tool <span style="font-size:0.6em; color:#777;">(Ver.1.26)</span></h1>
+        <p>Select mode to launch:</p>
+        <div>
+            <a href="?mode=dock" class="launch-btn">DOCK (Controller)</a>
+            <a href="?mode=display" class="launch-btn" style="background:#1e90ff;">DISPLAY (Overlay)</a>
         </div>
-
-        <div id="status" style="font-size: 0.7rem; color: #777; text-align: center; margin-bottom: 10px;">Ready (Ver.1.2)</div>
     </div>
 
-    <div id="display-ui">
-        <div id="displays-container"></div>
+    <div id="tool-wrapper">
+        <div id="dock-ui">
+            <div id="controls-container"></div>
+            <div class="setting-panel">
+                <div class="setting-title">opacity</div>
+                <input type="range" id="opacity-slider" min="0" max="1" step="0.05" oninput="updateOpacity(this.value)">
+            </div>
+            
+            <div class="credit-box">
+                <a href="https://x.com/MagicalKei_TG" target="_blank" rel="noopener noreferrer" class="credit-link"
+                   onclick="window.open(this.href, '_blank'); return false;">
+                    Created by まじけー
+                </a>
+                <button class="credit-copy-btn" onclick="copyXLink()" title="XのURLをコピー">❐</button>
+            </div>
+            
+            <div id="status" style="font-size: 0.7rem; color: #777; text-align: center; margin-bottom: 10px;">Ready (Ver.1.26)</div>
+        </div>
+
+        <div id="display-ui">
+            <div id="displays-container"></div>
+        </div>
     </div>
 
     <script>
-        const bc = new BroadcastChannel('obs_triple_v1_2');
+        const bc = new BroadcastChannel('obs_triple_v1_26');
         const urlParams = new URLSearchParams(window.location.search);
         const mode = urlParams.get('mode');
         const counterNames = ["T", "D", "S"];
@@ -148,58 +245,77 @@
         let visibilities = JSON.parse(localStorage.getItem('v1_2_vis') || "[true, true, true]");
         let bgOpacity = parseFloat(localStorage.getItem('v1_2_opacity') || "0.5");
         
-        let history = [];
+        let history = [[], [], []];
+
+        // モード判定と表示切替
+        if (mode === 'dock' || mode === 'display') {
+            document.documentElement.classList.add('tool-mode');
+            document.body.classList.add('tool-mode');
+            document.getElementById('tool-wrapper').style.display = 'block';
+        }
 
         window.onload = () => {
-            if (mode === 'display') {
-                const container = document.getElementById('displays-container');
-                document.getElementById('display-ui').style.display = 'block';
-                document.getElementById('dock-ui').style.display = 'none';
-                document.body.style.overflow = 'hidden';
-
-                counterNames.forEach((name, i) => {
-                    container.innerHTML += `
-                        <div class="display-row" id="row-${i}">
-                            <span class="label">${name}</span>
-                            <span class="w-num" id="w-${i}">${wins[i]}</span>
-                            <span class="slash">/</span>
-                            <span class="l-num" id="l-${i}">${losses[i]}</span>
-                        </div>`;
-                });
-            } else {
+            if (mode === 'dock') {
                 const dockUi = document.getElementById('dock-ui');
                 dockUi.style.display = 'flex';
-                document.getElementById('display-ui').style.display = 'none';
-                
                 document.getElementById('opacity-slider').value = bgOpacity;
-
-                const container = document.getElementById('controls-container');
-                counterNames.forEach((name, i) => {
-                    const isChecked = visibilities[i] ? 'checked' : '';
-                    container.innerHTML += `
-                        <div class="counter-panel">
-                            <div class="panel-header">
-                                <div class="panel-title">
-                                    ${name}
-                                    <span id="title-score-${i}" class="title-score">0-0</span>
-                                </div>
-                                <label class="toggle-label">
-                                    <input type="checkbox" ${isChecked} onchange="updateVis(${i}, this.checked)"> show
-                                </label>
-                            </div>
-                            <div class="btn-group">
-                                <button class="win-btn" onclick="updateVal(${i}, 1, 0)">WIN</button>
-                                <button class="loss-btn" onclick="updateVal(${i}, 0, 1)">LOSS</button>
-                            </div>
-                            <div class="sub-btn-group">
-                                <button class="sub-btn undo-btn" onclick="undo()">back</button>
-                                <button class="sub-btn reset-small" onclick="resetOne(${i})">reset</button>
-                            </div>
-                        </div>`;
-                });
+                renderDock();
+                refreshUI();
+            } else if (mode === 'display') {
+                const displayUi = document.getElementById('display-ui');
+                displayUi.style.display = 'block';
+                renderDisplay();
+                refreshUI();
             }
-            refreshUI();
         };
+
+        // Xのリンクをコピーする機能
+        function copyXLink() {
+            const xUrl = "https://x.com/MagicalKei_TG";
+            navigator.clipboard.writeText(xUrl).then(() => {
+                alert("XのURLをコピーしました!");
+            });
+        }
+
+        function renderDock() {
+            const container = document.getElementById('controls-container');
+            counterNames.forEach((name, i) => {
+                const isChecked = visibilities[i] ? 'checked' : '';
+                container.innerHTML += `
+                    <div class="counter-panel">
+                        <div class="panel-header">
+                            <div class="panel-title">
+                                ${name}
+                                <span id="title-score-${i}" class="title-score">0-0</span>
+                            </div>
+                            <label class="toggle-label">
+                                <input type="checkbox" ${isChecked} onchange="updateVis(${i}, this.checked)"> show
+                            </label>
+                        </div>
+                        <div class="btn-group">
+                            <button class="win-btn" onclick="updateVal(${i}, 1, 0)">WIN</button>
+                            <button class="loss-btn" onclick="updateVal(${i}, 0, 1)">LOSS</button>
+                        </div>
+                        <div class="sub-btn-group">
+                            <button class="sub-btn undo-btn" onclick="undo(${i})">back</button>
+                            <button class="sub-btn reset-small" onclick="resetOne(${i})">reset</button>
+                        </div>
+                    </div>`;
+            });
+        }
+
+        function renderDisplay() {
+            const container = document.getElementById('displays-container');
+            counterNames.forEach((name, i) => {
+                container.innerHTML += `
+                    <div class="display-row" id="row-${i}">
+                        <span class="label">${name}</span>
+                        <span class="w-num" id="w-${i}">${wins[i]}</span>
+                        <span class="slash">/</span>
+                        <span class="l-num" id="l-${i}">${losses[i]}</span>
+                    </div>`;
+            });
+        }
 
         function updateOpacity(value) {
             bgOpacity = parseFloat(value);
@@ -212,28 +328,30 @@
         }
 
         function updateVal(index, w, l) {
-            history.push({ wins: [...wins], losses: [...losses] });
-            if (history.length > 20) history.shift();
+            history[index].push({ w: wins[index], l: losses[index] });
+            if (history[index].length > 20) history[index].shift();
+
             wins[index] += w;
             losses[index] += l;
-            
-            // アニメーションのタイプ分け
             const type = w > 0 ? 'win' : 'loss';
             sync(index, type);
         }
 
-        function undo() {
-            if (history.length > 0) {
-                const lastState = history.pop();
-                wins = lastState.wins;
-                losses = lastState.losses;
+        function undo(index) {
+            if (history[index].length > 0) {
+                const lastState = history[index].pop();
+                wins[index] = lastState.w;
+                losses[index] = lastState.l;
                 sync(null, null);
             }
         }
 
         function resetOne(index) {
             if (confirm(`${counterNames[index]} reset?`)) {
-                wins[index] = 0;
+                history[index].push({ w: wins[index], l: losses[index] });
+                if (history[index].length > 20) history[index].shift();
+
+                wins[index] = 0; 
                 losses[index] = 0;
                 sync(null, null);
             }
@@ -250,7 +368,6 @@
 
         function refreshUI(animIndex = null, animType = null) {
             counterNames.forEach((_, i) => {
-                // ディスプレイ側
                 const row = document.getElementById(`row-${i}`);
                 if (row) {
                     if (visibilities[i]) row.classList.remove('hidden');
@@ -258,29 +375,21 @@
                     
                     const wEl = document.getElementById(`w-${i}`);
                     const lEl = document.getElementById(`l-${i}`);
-                    
                     wEl.textContent = wins[i];
                     lEl.textContent = losses[i];
                     row.style.backgroundColor = `rgba(0, 0, 0, ${bgOpacity})`;
 
-                    // アニメーション分岐処理
                     if (i === animIndex) {
                         const target = animType === 'win' ? wEl : lEl;
                         const animClass = animType === 'win' ? 'pop-anim' : 'shake-anim';
-                        
                         target.classList.remove('pop-anim', 'shake-anim');
-                        void target.offsetWidth; // リフロー
+                        void target.offsetWidth;
                         target.classList.add(animClass);
                     }
                 }
-
-                // ドック側タイトル
                 const titleScore = document.getElementById(`title-score-${i}`);
-                if (titleScore) {
-                    titleScore.textContent = `${wins[i]}-${losses[i]}`;
-                }
+                if (titleScore) titleScore.textContent = `${wins[i]}-${losses[i]}`;
             });
-            
             const slider = document.getElementById('opacity-slider');
             if (slider) slider.value = bgOpacity;
         }
