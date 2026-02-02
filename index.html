@@ -21,7 +21,7 @@
             color: #333;
         }
 
-        /* --- ランチャー画面（パラメータがない時に表示） --- */
+        /* --- ランチャー画面 --- */
         #launcher-ui {
             display: flex;
             flex-direction: column;
@@ -56,11 +56,10 @@
             width: 100% !important;
         }
         
-        /* ツールモード時はランチャーを隠す */
         body.tool-mode #launcher-ui { display: none !important; }
 
         #tool-wrapper {
-            display: none; /* JSで表示制御 */
+            display: none;
             position: fixed;
             top: 0;
             left: 0;
@@ -74,7 +73,7 @@
         
         #tool-wrapper * { box-sizing: border-box; }
 
-        /* --- ドック（操作パネル）のスタイル --- */
+        /* --- ドック（操作パネル） --- */
         #dock-ui { 
             background: var(--bg-dark); 
             padding: 10px; 
@@ -86,7 +85,6 @@
             overflow-y: auto; 
         }
         
-        /* スクロールバー装飾 */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: var(--bg-dark); }
         ::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
@@ -113,7 +111,7 @@
         .setting-title { font-size: 0.85rem; font-weight: bold; color: #ccc; margin-bottom: 5px; text-transform: lowercase; }
         input[type=range] { width: 100%; cursor: pointer; margin: 0; }
 
-        /* --- ディスプレイ（配信画面）のスタイル --- */
+        /* --- ディスプレイ（配信画面） --- */
         #display-ui { 
             background: transparent; 
             display: none; 
@@ -124,6 +122,7 @@
             text-align: left;
         }
         
+        /* 【修正①】カスタムCSS対応のため、背景色の指定方法を変更 */
         .display-row { 
             display: grid; 
             grid-template-columns: 45px 80px 25px 80px; 
@@ -142,11 +141,15 @@
             font-variant-numeric: tabular-nums;
             letter-spacing: 1px;
             line-height: 1;
+
+            /* ▼▼▼ 追加箇所：変数定義と適用 ▼▼▼ */
+            --bg-rgb: 0, 0, 0; /* デフォルトは黒 */
+            background-color: rgba(var(--bg-rgb), var(--bg-opacity, 0.5)) !important;
+            /* ▲▲▲ ここまで ▲▲▲ */
         }
         
         .label { text-align: center; color: #ffffff; margin: 0; padding: 0; }
         
-        /* アニメーション揺れ防止設定 */
         .w-num, .l-num { 
             text-align: center; margin: 0; padding: 0; 
             white-space: nowrap;
@@ -166,11 +169,14 @@
         
         .hidden { display: none !important; }
 
-        /* アニメーション定義 */
         @keyframes pop { 
-            0% { transform: scale(1); } 
-            50% { transform: scale(1.3); color: #fff; } 
-            100% { transform: scale(1); } 
+            0% { transform: scale(1); text-shadow: 2px 2px 4px rgba(0,0,0,0.8); } 
+            50% { 
+                transform: scale(1.3); 
+                color: #ffffff; 
+                text-shadow: 0 0 10px #fff, 0 0 20px var(--win-color);
+            } 
+            100% { transform: scale(1); text-shadow: 2px 2px 4px rgba(0,0,0,0.8); } 
         }
         .pop-anim { animation: pop 0.2s ease-out; }
         
@@ -184,7 +190,6 @@
         }
         .shake-anim { animation: shake 0.3s ease-in-out; }
         
-        /* クレジットリンク用スタイル */
         .credit-box {
             text-align: center; margin-top: 10px; margin-bottom: 5px;
             display: flex; justify-content: center; align-items: center; gap: 8px;
@@ -202,7 +207,7 @@
 <body>
 
     <div id="launcher-ui">
-        <h1>OBS Triple Counter Tool <span style="font-size:0.6em; color:#777;">(Ver.1.26)</span></h1>
+        <h1>OBS Triple Counter Tool <span style="font-size:0.6em; color:#777;">(Ver.1.27)</span></h1>
         <p>Select mode to launch:</p>
         <div>
             <a href="?mode=dock" class="launch-btn">DOCK (Controller)</a>
@@ -226,7 +231,7 @@
                 <button class="credit-copy-btn" onclick="copyXLink()" title="XのURLをコピー">❐</button>
             </div>
             
-            <div id="status" style="font-size: 0.7rem; color: #777; text-align: center; margin-bottom: 10px;">Ready (Ver.1.26)</div>
+            <div id="status" style="font-size: 0.7rem; color: #777; text-align: center; margin-bottom: 10px;">Ready (Ver.1.27)</div>
         </div>
 
         <div id="display-ui">
@@ -235,7 +240,7 @@
     </div>
 
     <script>
-        const bc = new BroadcastChannel('obs_triple_v1_26');
+        const bc = new BroadcastChannel('obs_triple_v1_27');
         const urlParams = new URLSearchParams(window.location.search);
         const mode = urlParams.get('mode');
         const counterNames = ["T", "D", "S"];
@@ -247,7 +252,6 @@
         
         let history = [[], [], []];
 
-        // モード判定と表示切替
         if (mode === 'dock' || mode === 'display') {
             document.documentElement.classList.add('tool-mode');
             document.body.classList.add('tool-mode');
@@ -269,7 +273,15 @@
             }
         };
 
-        // Xのリンクをコピーする機能
+        function copyToClipboard(elementId) {
+            const copyText = document.getElementById(elementId);
+            copyText.select();
+            copyText.setSelectionRange(0, 99999);
+            navigator.clipboard.writeText(copyText.value).then(() => {
+                alert("URLをコピーしました!");
+            });
+        }
+
         function copyXLink() {
             const xUrl = "https://x.com/MagicalKei_TG";
             navigator.clipboard.writeText(xUrl).then(() => {
@@ -377,7 +389,10 @@
                     const lEl = document.getElementById(`l-${i}`);
                     wEl.textContent = wins[i];
                     lEl.textContent = losses[i];
-                    row.style.backgroundColor = `rgba(0, 0, 0, ${bgOpacity})`;
+                    
+                    /* 【修正②】色は固定せず、透明度変数のみ更新する */
+                    // 旧: row.style.backgroundColor = `rgba(0, 0, 0, ${bgOpacity})`;
+                    row.style.setProperty('--bg-opacity', bgOpacity);
 
                     if (i === animIndex) {
                         const target = animType === 'win' ? wEl : lEl;
